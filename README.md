@@ -14,6 +14,42 @@ An MCP (Model Context Protocol) server for integrating with Aruba Central API, e
 - **Professional Output**: Enterprise-ready text-based status labels (no emojis)
 - **OAuth2 Authentication**: Automatic token management with HPE SSO
 
+## Quick Start
+
+### One-Command Deployment
+
+```bash
+./deploy.sh
+```
+
+The interactive deployment script will:
+
+1. ✅ Check Docker prerequisites
+2. ✅ Prompt for your Aruba Central region (13 regions supported)
+3. ✅ Securely collect your API credentials
+4. ✅ Build and start the Docker container
+5. ✅ Verify deployment health
+
+### Supported Regions
+
+| Region | API Endpoint |
+|--------|--------------|
+| **Americas** | |
+| US-1 | us1.api.central.arubanetworks.com |
+| US-2 | us2.api.central.arubanetworks.com |
+| US-WEST-4 | us4.api.central.arubanetworks.com |
+| US-WEST-5 | us5.api.central.arubanetworks.com |
+| US-East1 | us6.api.central.arubanetworks.com |
+| Canada-1 | ca1.api.central.arubanetworks.com |
+| **Europe** | |
+| EU-1 | de1.api.central.arubanetworks.com |
+| EU-Central2 | de2.api.central.arubanetworks.com |
+| EU-Central3 | de3.api.central.arubanetworks.com |
+| **Asia Pacific** | |
+| APAC-1 | in.api.central.arubanetworks.com |
+| APAC-EAST1 | jp1.api.central.arubanetworks.com |
+| APAC-SOUTH1 | au1.api.central.arubanetworks.com |
+
 ## Project Structure
 
 ```
@@ -22,7 +58,7 @@ aruba-noc-mcp-server/
 │   ├── __init__.py
 │   ├── config.py              # ArubaConfig class
 │   ├── api_client.py          # call_aruba_api helper
-│   ├── server.py              # MCP server initialization
+│   ├── server.py              # MCP server + tool definitions
 │   └── tools/
 │       ├── __init__.py
 │       ├── base.py            # StatusLabels + shared utilities
@@ -31,106 +67,64 @@ aruba-noc-mcp-server/
 │       ├── clients.py         # Client monitoring
 │       ├── gateways.py        # Gateway listing
 │       ├── firmware.py        # Firmware compliance
-│       ├── get_ap_*.py        # AP deep-dive tools (4 files)
-│       ├── get_gateway_*.py   # Gateway deep-dive tools (5 files)
-│       ├── get_switch_*.py    # Switch deep-dive tools (3 files)
-│       ├── get_site_*.py      # Site details
-│       ├── get_client_*.py    # Client analytics
-│       ├── get_tenant_*.py    # Org-wide health
-│       ├── list_*.py          # List tools (WLANs, tunnels, threats)
-│       ├── ping_from_*.py     # Ping diagnostics
-│       └── traceroute_*.py    # Traceroute diagnostics
-├── tests/
-│   ├── __init__.py
-│   ├── test_config.py
-│   ├── test_api_client.py
-│   └── tools/
-│       ├── test_devices.py
-│       └── test_sites.py
-├── scripts/
-│   └── test_connection.py
+│       └── ...                # 25+ additional tool handlers
+├── tests/                     # 130+ unit tests
+├── scripts/                   # Testing utilities
 ├── Dockerfile
 ├── docker-compose.yaml
-├── mcp_config.json
-├── requirements.txt
-├── requirements-dev.txt
-├── pyproject.toml
-├── .env.example
-├── .gitignore
+├── deploy.sh                  # Interactive deployment script
+├── mcp_config.json            # MCP client config template
+├── .env.example               # Environment template
 └── README.md
 ```
 
-## Installation
+## Manual Installation
 
-1. Clone the repository:
+1. **Clone the repository:**
 
    ```bash
    git clone https://github.com/yourusername/aruba-noc-mcp-server.git
    cd aruba-noc-mcp-server
    ```
 
-2. Create a virtual environment:
+2. **Create a virtual environment:**
 
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. Install dependencies:
+3. **Install dependencies:**
 
    ```bash
-   # Production only
    pip install -r requirements.txt
-
-   # With development tools
-   pip install -r requirements-dev.txt
    ```
 
-4. Configure environment:
+4. **Configure environment:**
 
    ```bash
    cp .env.example .env
    # Edit .env with your Aruba Central credentials
    ```
 
-## Configuration
+5. **Run the server:**
 
-Set the following environment variables in your `.env` file:
+   ```bash
+   python -m src.server
+   ```
+
+## Configuration
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ARUBA_BASE_URL` | No | Aruba Central API URL (defaults to US1) |
+| `ARUBA_BASE_URL` | No | Aruba Central API URL (see regions above) |
 | `ARUBA_CLIENT_ID` | Yes* | OAuth2 Client ID |
 | `ARUBA_CLIENT_SECRET` | Yes* | OAuth2 Client Secret |
-| `ARUBA_ACCESS_TOKEN` | Yes* | Pre-generated access token |
+| `ARUBA_ACCESS_TOKEN` | No | Pre-generated access token (auto-generated if not provided) |
 
-*Either `ARUBA_ACCESS_TOKEN` or both `ARUBA_CLIENT_ID` and `ARUBA_CLIENT_SECRET` are required.
+*Get your credentials from: **Aruba Central > Account Home > API Gateway > My Apps & Tokens**
 
-## Running the Server
-
-### Local Development
-
-```bash
-python -m src.server
-```
-
-### Docker (Recommended)
-
-**One-command deployment:**
-
-```bash
-./deploy.sh
-```
-
-The deploy script will:
-
-1. Check Docker prerequisites
-2. Verify `.env` configuration
-3. Stop any existing container
-4. Build and start the container
-5. Verify deployment health
-
-**Manual Docker commands:**
+## Docker Commands
 
 ```bash
 # Build and start
@@ -144,9 +138,12 @@ docker compose down
 
 # Restart
 docker compose restart
+
+# Reconfigure credentials
+./deploy.sh  # Select 'y' when prompted
 ```
 
-### MCP Client Configuration
+## MCP Client Configuration
 
 Add to your `mcp_config.json`:
 
@@ -159,16 +156,6 @@ Add to your `mcp_config.json`:
     }
   }
 }
-```
-
-### Running Tests
-
-```bash
-# Run all tests (133 tests)
-pytest tests/ -v
-
-# Quick test run
-pytest tests/ -q
 ```
 
 ## Available Tools (38 Total)
@@ -236,23 +223,16 @@ pytest tests/ -q
 | `list_idps_threats` | IDS/IPS threat detection with severity breakdown |
 | `get_firewall_sessions` | Firewall session analysis and rule statistics |
 
-### Firmware Tools
+### Firmware & Async Tools
 
 | Tool | Description |
 |------|-------------|
 | `get_firmware_details` | Firmware compliance with upgrade recommendations |
-
-### Async Operations
-
-| Tool | Description |
-|------|-------------|
 | `get_async_test_result` | Poll async operation status (ping/traceroute) |
 
 ## Status Labels Reference
 
-All tools use professional text-based status labels for enterprise-ready output:
-
-### Status Indicators
+All tools use professional text-based status labels:
 
 | Label | Meaning |
 |-------|---------|
@@ -260,45 +240,21 @@ All tools use professional text-based status labels for enterprise-ready output:
 | `[WARN]` | Warning condition |
 | `[CRIT]` | Critical issue |
 | `[ERR]` | Error state |
-| `[INFO]` | Informational note |
 | `[UP]` | Online, active |
 | `[DN]` | Offline, down |
-
-### Device Types
-
-| Label | Meaning |
-|-------|---------|
-| `[AP]` | Access Point |
-| `[SW]` | Switch |
-| `[GW]` | Gateway |
-| `[DEV]` | Generic device |
-
-### Data Categories
-
-| Label | Meaning |
-|-------|---------|
-| `[STATS]` | Statistics section |
-| `[TREND]` | Trend data |
-| `[DATA]` | Data metrics |
-| `[NET]` | Network information |
-| `[VPN]` | VPN/Tunnel |
-| `[SEC]` | Security-related |
-
-### Example Output
-
-```
-[NET] Tenant Device Health Report
-[STATUS] Network Health: [OK] Healthy | 98.5% Uptime
-
-[DEV] Device Summary
-  [AP] Access Points: 45 total | 43 [UP] | 2 [DN]
-  [SW] Switches: 12 total | 12 [UP] | 0 [DN]
-  [GW] Gateways: 4 total | 4 [UP] | 0 [DN]
-
-[HEALTH] SLA Compliance: [OK] 99.2%
-```
+| `[AP]` `[SW]` `[GW]` | Device types |
 
 ## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ -v --cov=src --cov-report=term-missing
+```
 
 ### Code Quality
 
@@ -316,19 +272,6 @@ ruff format src/ tests/
 mypy src/
 ```
 
-### Testing
-
-```bash
-# Run all tests
-pytest tests/ -v
-
-# Run with coverage
-pytest tests/ -v --cov=src --cov-report=term-missing
-
-# Validate syntax
-python -m py_compile src/**/*.py
-```
-
 ### Adding New Tools
 
 1. Create tool file in `src/tools/` following existing patterns
@@ -339,4 +282,4 @@ python -m py_compile src/**/*.py
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
