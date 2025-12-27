@@ -3,8 +3,9 @@ Tests for ArubaConfig class
 """
 
 import os
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock
 
 from src.config import ArubaConfig
 
@@ -56,16 +57,21 @@ class TestArubaConfig:
             "ARUBA_CLIENT_ID": "test_id",
             "ARUBA_CLIENT_SECRET": "test_secret",
         }):
+            from unittest.mock import MagicMock
+
             config = ArubaConfig()
 
-            mock_response = AsyncMock()
+            # Response object with sync json() method
+            mock_response = MagicMock()
             mock_response.json.return_value = {"access_token": "new_token"}
-            mock_response.raise_for_status = AsyncMock()
+            mock_response.raise_for_status = MagicMock()
+
+            # AsyncClient context manager with async post
+            mock_client_instance = AsyncMock()
+            mock_client_instance.post = AsyncMock(return_value=mock_response)
 
             with patch("httpx.AsyncClient") as mock_client:
-                mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                    return_value=mock_response
-                )
+                mock_client.return_value.__aenter__.return_value = mock_client_instance
                 token = await config.get_access_token()
                 assert token == "new_token"
                 assert config.access_token == "new_token"

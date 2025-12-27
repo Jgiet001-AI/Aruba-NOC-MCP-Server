@@ -2,11 +2,12 @@
 Tests for API Client
 """
 
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.config import ArubaConfig
+import pytest
+
 from src.api_client import call_aruba_api
+from src.config import ArubaConfig
 
 
 class TestCallArubaApi:

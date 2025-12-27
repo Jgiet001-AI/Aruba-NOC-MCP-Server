@@ -2,128 +2,115 @@
 Clients - MCP tools for wireless client management in Aruba Central
 """
 
+import json
 import logging
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.types import TextContent
 
-from ..config import ArubaConfig
-from ..api_client import call_aruba_api
-from .base import paginated_params, build_filter_params
+from src.api_client import call_aruba_api
 
 logger = logging.getLogger("aruba-noc-server")
 
 
-def register(mcp: FastMCP, config: ArubaConfig):
-    """Register client-related tools with the MCP server"""
+def _format_json(data: dict[str, Any]) -> str:
+    """Format JSON data for display"""
+    return json.dumps(data, indent=2)
 
-    @mcp.tool()
-    async def list_clients(
-        site: str | None = None,
-        group: str | None = None,
-        label: str | None = None,
-        network: str | None = None,
-        os_type: str | None = None,
-        connection_type: str | None = None,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> dict[str, Any]:
-        """
-        List wireless clients from Aruba Central.
 
-        Args:
-            site: Filter by site name
-            group: Filter by group name
-            label: Filter by label
-            network: Filter by network/SSID
-            os_type: Filter by client OS type
-            connection_type: Filter by connection type (wired, wireless)
-            limit: Maximum number of clients to return
-            offset: Pagination offset
+async def handle_list_all_clients(args: dict[str, Any]) -> list[TextContent]:
+    """Tool 3: List All Clients - /network-monitoring/v1alpha1/clients
 
-        Returns:
-            Dictionary containing client list and metadata
-        """
-        params = build_filter_params(
-            paginated_params(limit, offset),
-            site=site,
-            group=group,
-            label=label,
-            network=network,
-            os_type=os_type,
-            connection_type=connection_type,
-        )
-        return await call_aruba_api(config, "/monitoring/v1/clients", params=params)
+    Retrieves ALL connected/recent clients with connection details.
+    Note: API uses hyphenated parameter names!
+    """
+    # Step 1: Extract and prepare parameters
+    # IMPORTANT: API uses hyphenated names (site-id, serial-number, etc.)
+    params = {}
 
-    @mcp.tool()
-    async def get_client(client_mac: str) -> dict[str, Any]:
-        """
-        Get details for a specific client by MAC address.
+    if "site_id" in args:
+        params["site-id"] = args["site_id"]  # Note the hyphen!
+    if "serial_number" in args:
+        params["serial-number"] = args["serial_number"]  # Note the hyphen!
+    if "start_query_time" in args:
+        params["start-query-time"] = args["start_query_time"]  # Note the hyphen!
+    if "end_query_time" in args:
+        params["end-query-time"] = args["end_query_time"]  # Note the hyphen!
+    if "filter" in args:
+        params["filter"] = args["filter"]
+    if "sort" in args:
+        params["sort"] = args["sort"]
+    params["limit"] = args.get("limit", 100)
+    if "next" in args:
+        params["next"] = args["next"]
 
-        Args:
-            client_mac: MAC address of the client
+    # Step 2: Call Aruba API
+    data = await call_aruba_api("/network-monitoring/v1alpha1/clients", params=params)
 
-        Returns:
-            Client details dictionary
-        """
-        return await call_aruba_api(config, f"/monitoring/v1/clients/{client_mac}")
+    # Step 3: Extract response data
+    clients = data.get("items", [])
+    total = data.get("total", 0)
+    count = len(clients)
+    next_cursor = data.get("next")
 
-    @mcp.tool()
-    async def get_client_count(
-        site: str | None = None,
-        group: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get client count summary.
+    # Step 4: Analyze and categorize clients
+    by_type = {"Wired": 0, "Wireless": 0, "Unknown": 0}
+    by_status = {}
+    by_experience = {"Good": 0, "Fair": 0, "Poor": 0, "Unknown": 0}
 
-        Args:
-            site: Optional filter by site name
-            group: Optional filter by group name
+    for client in clients:
+        # Connection type
+        conn_type = client.get("type", "Unknown")
+        if conn_type in by_type:
+            by_type[conn_type] += 1
+        else:
+            by_type["Unknown"] += 1
 
-        Returns:
-            Client count metrics
-        """
-        params = build_filter_params({}, site=site, group=group)
-        return await call_aruba_api(
-            config, "/monitoring/v1/clients/count", params=params
-        )
+        # Status
+        status = client.get("status", "Unknown")
+        by_status[status] = by_status.get(status, 0) + 1
 
-    @mcp.tool()
-    async def get_client_bandwidth(
-        client_mac: str,
-        duration: str = "3h",
-    ) -> dict[str, Any]:
-        """
-        Get bandwidth usage for a specific client.
+        # Experience
+        experience = client.get("experience", "Unknown")
+        if experience in by_experience:
+            by_experience[experience] += 1
+        else:
+            by_experience["Unknown"] += 1
 
-        Args:
-            client_mac: MAC address of the client
-            duration: Time duration (e.g., 3h, 1d, 7d)
+    # Step 5: Create human-readable summary
+    summary_parts = []
+    summary_parts.append("**Network Clients Overview**")
+    summary_parts.append(f"Total clients: {total} (showing {count})\n")
 
-        Returns:
-            Client bandwidth metrics
-        """
-        params = {"duration": duration}
-        return await call_aruba_api(
-            config, f"/monitoring/v1/clients/{client_mac}/bandwidth", params=params
-        )
+    # Connection type breakdown
+    summary_parts.append("**By Connection Type:**")
+    type_labels = {"Wireless": "[WIFI]", "Wired": "[WIRED]", "Unknown": "[--]"}
+    for ctype, cnt in by_type.items():
+        if cnt > 0:
+            label = type_labels.get(ctype, "[--]")
+            summary_parts.append(f"  {label} {ctype}: {cnt}")
 
-    @mcp.tool()
-    async def get_wireless_clients_summary(
-        site: str | None = None,
-        duration: str = "3h",
-    ) -> dict[str, Any]:
-        """
-        Get wireless clients summary with connection statistics.
+    # Status breakdown
+    if by_status:
+        summary_parts.append("\n**By Status:**")
+        status_labels = {"Connected": "[OK]", "Disconnected": "[X]", "Idle": "[IDLE]"}
+        for status, cnt in sorted(by_status.items()):
+            label = status_labels.get(status, "[--]")
+            summary_parts.append(f"  {label} {status}: {cnt}")
 
-        Args:
-            site: Optional filter by site name
-            duration: Time duration (e.g., 3h, 1d, 7d)
+    # Experience breakdown
+    summary_parts.append("\n**By Experience:**")
+    exp_labels = {"Good": "[OK]", "Fair": "[WARN]", "Poor": "[CRIT]", "Unknown": "[--]"}
+    for exp, cnt in by_experience.items():
+        if cnt > 0:
+            label = exp_labels.get(exp, "[--]")
+            summary_parts.append(f"  {label} {exp}: {cnt}")
 
-        Returns:
-            Wireless clients summary
-        """
-        params = build_filter_params({"duration": duration}, site=site)
-        return await call_aruba_api(
-            config, "/monitoring/v1/clients/wireless/summary", params=params
-        )
+    # Pagination info
+    if next_cursor:
+        summary_parts.append("\n[MORE] Results available (use next cursor)")
+
+    summary = "\n".join(summary_parts)
+
+    # Step 6: Return formatted response
+    return [TextContent(type="text", text=f"{summary}\n\n{_format_json(data)}")]

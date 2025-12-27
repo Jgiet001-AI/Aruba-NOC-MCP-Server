@@ -33,34 +33,34 @@ async def test_connection():
     load_dotenv(env_path)
 
     # Check configuration
-    print("\n📋 Configuration Check:")
+    print("\n[CONFIG] Configuration Check:")
     print(f"  Base URL: {os.getenv('ARUBA_BASE_URL', 'Not set (will use default)')}")
-    print(f"  Client ID: {'✓ Set' if os.getenv('ARUBA_CLIENT_ID') else '✗ Not set'}")
-    print(f"  Client Secret: {'✓ Set' if os.getenv('ARUBA_CLIENT_SECRET') else '✗ Not set'}")
-    print(f"  Access Token: {'✓ Set' if os.getenv('ARUBA_ACCESS_TOKEN') else '✗ Not set'}")
+    print(f"  Client ID: {'[OK] Set' if os.getenv('ARUBA_CLIENT_ID') else '[--] Not set'}")
+    print(f"  Client Secret: {'[OK] Set' if os.getenv('ARUBA_CLIENT_SECRET') else '[--] Not set'}")
+    print(f"  Access Token: {'[OK] Set' if os.getenv('ARUBA_ACCESS_TOKEN') else '[--] Not set'}")
 
     # Initialize config
-    print("\n🔧 Initializing configuration...")
+    print("\n[SETUP] Initializing configuration...")
     try:
         config = ArubaConfig()
-        print("  ✓ Configuration loaded")
+        print("  [OK] Configuration loaded")
     except Exception as e:
-        print(f"  ✗ Configuration error: {e}")
+        print(f"  [ERR] Configuration error: {e}")
         return False
 
     # Test token generation/validation
-    print("\n🔐 Testing authentication...")
+    print("\n[AUTH] Testing authentication...")
     try:
         if not config.access_token:
-            print("  → Generating access token from client credentials...")
+            print("  --> Generating access token from client credentials...")
             await config.get_access_token()
-        print(f"  ✓ Access token available (length: {len(config.access_token)})")
+        print(f"  [OK] Access token available (length: {len(config.access_token)})")
     except Exception as e:
-        print(f"  ✗ Authentication error: {e}")
+        print(f"  [ERR] Authentication error: {e}")
         return False
 
     # Test API connectivity
-    print("\n🌐 Testing API connectivity...")
+    print("\n[NET] Testing API connectivity...")
     try:
         # Try to list devices (minimal request)
         result = await call_aruba_api(
@@ -68,19 +68,19 @@ async def test_connection():
             "/monitoring/v2/devices",
             params={"limit": 1, "offset": 0},
         )
-        print("  ✓ API connection successful!")
+        print("  [OK] API connection successful!")
 
         if "total" in result:
-            print(f"  📊 Total devices in Central: {result['total']}")
+            print(f"  [STATS] Total devices in Central: {result['total']}")
         elif "devices" in result:
-            print(f"  📊 Devices returned: {len(result['devices'])}")
+            print(f"  [STATS] Devices returned: {len(result['devices'])}")
 
     except Exception as e:
-        print(f"  ✗ API error: {e}")
+        print(f"  [ERR] API error: {e}")
         return False
 
     print("\n" + "=" * 60)
-    print("✅ Connection test PASSED")
+    print("[PASS] Connection test PASSED")
     print("=" * 60)
     return True
 
@@ -94,7 +94,7 @@ async def main():
         print("\n\nTest cancelled by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ Unexpected error: {e}")
+        print(f"\n[FAIL] Unexpected error: {e}")
         sys.exit(1)
 
 

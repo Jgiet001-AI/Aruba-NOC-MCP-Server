@@ -2,126 +2,119 @@
 Gateways - MCP tools for gateway management in Aruba Central
 """
 
+import json
 import logging
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.types import TextContent
 
-from ..config import ArubaConfig
-from ..api_client import call_aruba_api
-from .base import paginated_params, build_filter_params
+from src.api_client import call_aruba_api
 
 logger = logging.getLogger("aruba-noc-server")
 
 
-def register(mcp: FastMCP, config: ArubaConfig):
-    """Register gateway-related tools with the MCP server"""
+def _format_json(data: dict[str, Any]) -> str:
+    """Format JSON data for display"""
+    return json.dumps(data, indent=2)
 
-    @mcp.tool()
-    async def list_gateways(
-        site: str | None = None,
-        group: str | None = None,
-        status: str | None = None,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> dict[str, Any]:
-        """
-        List all gateways from Aruba Central.
 
-        Args:
-            site: Filter by site name
-            group: Filter by group name
-            status: Filter by status (up, down)
-            limit: Maximum number of gateways to return
-            offset: Pagination offset
+async def handle_list_gateways(args: dict[str, Any]) -> list[TextContent]:
+    """Tool 5: List Gateways - /network-monitoring/v1alpha1/gateways
 
-        Returns:
-            Dictionary containing gateway list and metadata
-        """
-        params = build_filter_params(
-            paginated_params(limit, offset),
-            site=site,
-            group=group,
-            status=status,
-        )
-        return await call_aruba_api(config, "/monitoring/v2/gateways", params=params)
+    Retrieves comprehensive list of ALL gateways with deployment details.
+    """
+    # Step 1: Extract and prepare parameters
+    params = {}
 
-    @mcp.tool()
-    async def get_gateway(gateway_serial: str) -> dict[str, Any]:
-        """
-        Get details for a specific gateway.
+    if "filter" in args:
+        params["filter"] = args["filter"]
+    if "sort" in args:
+        params["sort"] = args["sort"]
+    params["limit"] = args.get("limit", 100)
+    if "next" in args:
+        params["next"] = args["next"]
 
-        Args:
-            gateway_serial: Serial number of the gateway
+    # Step 2: Call Aruba API
+    data = await call_aruba_api("/network-monitoring/v1alpha1/gateways", params=params)
 
-        Returns:
-            Gateway details dictionary
-        """
-        return await call_aruba_api(
-            config, f"/monitoring/v1/gateways/{gateway_serial}"
-        )
+    # Step 3: Extract response data
+    gateways = data.get("items", [])
+    total = data.get("total", 0)
+    count = len(gateways)
+    next_cursor = data.get("next")
 
-    @mcp.tool()
-    async def get_gateway_uplinks(gateway_serial: str) -> dict[str, Any]:
-        """
-        Get uplink information for a specific gateway.
+    # Step 4: Analyze and categorize gateways
+    by_status = {"ONLINE": 0, "OFFLINE": 0}
+    by_deployment = {"Standalone": 0, "Clustered": 0}
+    by_model = {}
+    offline_gateways = []
 
-        Args:
-            gateway_serial: Serial number of the gateway
+    for gw in gateways:
+        # Status tracking
+        status = gw.get("status", "UNKNOWN")
+        if status == "ONLINE":
+            by_status["ONLINE"] += 1
+        elif status == "OFFLINE":
+            by_status["OFFLINE"] += 1
+            offline_gateways.append(
+                {
+                    "name": gw.get("deviceName", "Unknown"),
+                    "serial": gw.get("serialNumber", "N/A"),
+                    "site": gw.get("siteName", "Unknown"),
+                }
+            )
 
-        Returns:
-            Gateway uplink details
-        """
-        return await call_aruba_api(
-            config, f"/monitoring/v1/gateways/{gateway_serial}/uplinks"
-        )
+        # Deployment type
+        deployment = gw.get("deployment", "Unknown")
+        if deployment in by_deployment:
+            by_deployment[deployment] += 1
+        elif deployment != "Unknown":
+            by_deployment[deployment] = 1
 
-    @mcp.tool()
-    async def get_gateway_tunnels(gateway_serial: str) -> dict[str, Any]:
-        """
-        Get VPN tunnel information for a specific gateway.
+        # Model tracking
+        model = gw.get("model", "Unknown")
+        by_model[model] = by_model.get(model, 0) + 1
 
-        Args:
-            gateway_serial: Serial number of the gateway
+    # Step 5: Create human-readable summary
+    summary_parts = []
+    summary_parts.append("**Gateway Inventory Overview**")
+    summary_parts.append(f"Total gateways: {total} (showing {count})\n")
 
-        Returns:
-            Gateway tunnel details
-        """
-        return await call_aruba_api(
-            config, f"/monitoring/v1/gateways/{gateway_serial}/tunnels"
-        )
+    # Status breakdown
+    summary_parts.append("**By Status:**")
+    online = by_status.get("ONLINE", 0)
+    offline = by_status.get("OFFLINE", 0)
+    summary_parts.append(f"  [UP] ONLINE: {online}")
+    summary_parts.append(f"  [DN] OFFLINE: {offline}")
+    if total > 0:
+        uptime_pct = online / total * 100
+        summary_parts.append(f"  [AVAIL] Availability: {uptime_pct:.1f}%")
 
-    @mcp.tool()
-    async def get_gateway_health(gateway_serial: str) -> dict[str, Any]:
-        """
-        Get health metrics for a specific gateway.
+    # Deployment breakdown
+    summary_parts.append("\n**By Deployment Type:**")
+    for deployment, count_val in sorted(by_deployment.items()):
+        label = "[CLUST]" if deployment == "Clustered" else "[SOLO]"
+        summary_parts.append(f"  {label} {deployment}: {count_val}")
 
-        Args:
-            gateway_serial: Serial number of the gateway
+    # Model inventory
+    if by_model:
+        summary_parts.append("\n**By Model:**")
+        for model, count_val in sorted(by_model.items()):
+            summary_parts.append(f"  [HW] {model}: {count_val}")
 
-        Returns:
-            Gateway health metrics
-        """
-        return await call_aruba_api(
-            config, f"/monitoring/v1/gateways/{gateway_serial}/health"
-        )
+    # Offline gateways (critical info)
+    if offline_gateways:
+        summary_parts.append(f"\n[ALERT] **Offline Gateways ({len(offline_gateways)}):**")
+        for i, gw in enumerate(offline_gateways[:10], 1):  # Top 10
+            summary_parts.append(f"  {i}. {gw['name']} ({gw['serial']}) at {gw['site']}")
+        if len(offline_gateways) > 10:
+            summary_parts.append(f"  ... and {len(offline_gateways) - 10} more offline")
 
-    @mcp.tool()
-    async def get_gateway_stats(
-        gateway_serial: str,
-        duration: str = "3h",
-    ) -> dict[str, Any]:
-        """
-        Get statistics for a specific gateway.
+    # Pagination info
+    if next_cursor:
+        summary_parts.append("\n[MORE] Results available (use next cursor)")
 
-        Args:
-            gateway_serial: Serial number of the gateway
-            duration: Time duration (e.g., 3h, 1d, 7d)
+    summary = "\n".join(summary_parts)
 
-        Returns:
-            Gateway statistics
-        """
-        params = {"duration": duration}
-        return await call_aruba_api(
-            config, f"/monitoring/v1/gateways/{gateway_serial}/stats", params=params
-        )
+    # Step 6: Return formatted response
+    return [TextContent(type="text", text=f"{summary}\n\n{_format_json(data)}")]

@@ -1,0 +1,16 @@
+{
+    "mcpServers": {
+        "aruba-noc": {
+            "command": "/Users/jeangiet/.docker/bin/docker",
+            "args": [
+                "exec",
+                "-i",
+                "aruba-noc-mcp-server",
+                "python",
+                "-m",
+                "src.server"
+            ],
+            "env": {}
+        }
+    }
+}

@@ -1,31 +1,26 @@
 """
-API Client - Generic API calling function for Aruba Central
+API Client - API calling function for Aruba Central
 """
 
 import logging
+from typing import Any
+
 import httpx
-from typing import Any, Optional
 
 from src.config import config
 
 logger = logging.getLogger("aruba-noc-server")
 
 
-
-
-
-
 async def call_aruba_api(
     endpoint: str,
     method: str = "GET",
-    params: Optional[dict[str, Any]] = None,
-    json_data: Optional[dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
+    json_data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Make an authenticated API call to Aruba Central"""
 
-
     url = f"{config.base_url}{endpoint}"
-
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.request(

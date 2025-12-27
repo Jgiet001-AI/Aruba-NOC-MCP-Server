@@ -2,119 +2,136 @@
 Firmware - MCP tools for firmware management in Aruba Central
 """
 
+import json
 import logging
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.types import TextContent
 
-from ..config import ArubaConfig
-from ..api_client import call_aruba_api
-from .base import paginated_params, build_filter_params
+from src.api_client import call_aruba_api
 
 logger = logging.getLogger("aruba-noc-server")
 
 
-def register(mcp: FastMCP, config: ArubaConfig):
-    """Register firmware-related tools with the MCP server"""
+def _format_json(data: dict[str, Any]) -> str:
+    """Format JSON data for display"""
+    return json.dumps(data, indent=2)
 
-    @mcp.tool()
-    async def list_firmware_versions(
-        device_type: str | None = None,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> dict[str, Any]:
-        """
-        List available firmware versions.
 
-        Args:
-            device_type: Filter by device type (ap, switch, gateway)
-            limit: Maximum number of versions to return
-            offset: Pagination offset
+async def handle_get_firmware_details(args: dict[str, Any]) -> list[TextContent]:
+    """Tool 4: Get Firmware Details - /network-services/v1alpha1/firmware-details
 
-        Returns:
-            Dictionary containing firmware versions
-        """
-        params = build_filter_params(
-            paginated_params(limit, offset),
-            device_type=device_type,
-        )
-        return await call_aruba_api(config, "/firmware/v1/versions", params=params)
+    Retrieves firmware status for ALL devices with version info and compliance.
+    """
+    # Step 1: Extract and prepare parameters
+    params = {}
 
-    @mcp.tool()
-    async def get_device_firmware(device_serial: str) -> dict[str, Any]:
-        """
-        Get current firmware information for a specific device.
+    if "filter" in args:
+        params["filter"] = args["filter"]
+    if "sort" in args:
+        params["sort"] = args["sort"]
+    if "search" in args:
+        params["search"] = args["search"]
+    params["limit"] = args.get("limit", 100)
+    if "next" in args:
+        params["next"] = args["next"]
 
-        Args:
-            device_serial: Serial number of the device
+    # Step 2: Call Aruba API
+    data = await call_aruba_api("/network-services/v1alpha1/firmware-details", params=params)
 
-        Returns:
-            Device firmware details
-        """
-        return await call_aruba_api(
-            config, f"/firmware/v1/devices/{device_serial}"
-        )
+    # Step 3: Extract response data
+    devices = data.get("items", [])
+    total_devices = data.get("total", len(devices))
+    next_cursor = data.get("next")
 
-    @mcp.tool()
-    async def get_firmware_compliance(
-        group: str | None = None,
-        site: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get firmware compliance status across devices.
+    # Step 4: Analyze firmware status
+    by_upgrade_status = {"Up To Date": 0, "Update Available": 0, "Update Required": 0, "Unknown": 0}
+    by_classification = {}
+    by_device_type = {}
+    devices_needing_updates = []
 
-        Args:
-            group: Optional filter by group name
-            site: Optional filter by site name
+    for device in devices:
+        # Upgrade status
+        upgrade_status = device.get("upgradeStatus", "Unknown")
+        if upgrade_status in by_upgrade_status:
+            by_upgrade_status[upgrade_status] += 1
+        else:
+            by_upgrade_status["Unknown"] += 1
 
-        Returns:
-            Firmware compliance summary
-        """
-        params = build_filter_params({}, group=group, site=site)
-        return await call_aruba_api(
-            config, "/firmware/v1/compliance", params=params
-        )
+        # Classification
+        classification = device.get("firmwareClassification", "Unknown")
+        by_classification[classification] = by_classification.get(classification, 0) + 1
 
-    @mcp.tool()
-    async def get_upgrade_status(
-        task_id: str | None = None,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> dict[str, Any]:
-        """
-        Get status of firmware upgrade tasks.
+        # Device type
+        device_type = device.get("deviceType", "Unknown")
+        by_device_type[device_type] = by_device_type.get(device_type, 0) + 1
 
-        Args:
-            task_id: Optional specific task ID to check
-            limit: Maximum number of tasks to return
-            offset: Pagination offset
-
-        Returns:
-            Firmware upgrade task status
-        """
-        if task_id:
-            return await call_aruba_api(
-                config, f"/firmware/v1/upgrade/status/{task_id}"
+        # Track devices needing updates
+        if upgrade_status in ["Update Available", "Update Required"]:
+            devices_needing_updates.append(
+                {
+                    "name": device.get("deviceName", "Unknown"),
+                    "serial": device.get("serialNumber", "N/A"),
+                    "current": device.get("softwareVersion", "Unknown"),
+                    "recommended": device.get("recommendedVersion", "N/A"),
+                    "status": upgrade_status,
+                    "classification": classification,
+                }
             )
-        params = paginated_params(limit, offset)
-        return await call_aruba_api(
-            config, "/firmware/v1/upgrade/status", params=params
-        )
 
-    @mcp.tool()
-    async def get_firmware_recommendations(
-        device_type: str,
-    ) -> dict[str, Any]:
-        """
-        Get recommended firmware versions for a device type.
+    # Sort devices by upgrade priority (Required > Available)
+    devices_needing_updates.sort(key=lambda x: (x["status"] != "Update Required", x["name"]))
 
-        Args:
-            device_type: Device type (ap, switch, gateway)
+    # Step 5: Create human-readable summary
+    summary_parts = []
+    summary_parts.append("**Firmware Status Overview**")
+    summary_parts.append(f"Total devices analyzed: {total_devices}\n")
 
-        Returns:
-            Recommended firmware versions
-        """
-        params = {"device_type": device_type}
-        return await call_aruba_api(
-            config, "/firmware/v1/recommendations", params=params
-        )
+    # Upgrade status breakdown
+    summary_parts.append("**By Upgrade Status:**")
+    status_labels = {
+        "Up To Date": "[OK]",
+        "Update Available": "[AVAIL]",
+        "Update Required": "[REQ]",
+        "Unknown": "[--]",
+    }
+    for status, count in by_upgrade_status.items():
+        if count > 0:
+            label = status_labels.get(status, "[--]")
+            percentage = (count / total_devices * 100) if total_devices > 0 else 0
+            summary_parts.append(f"  {label} {status}: {count} ({percentage:.1f}%)")
+
+    # Device type breakdown
+    if by_device_type:
+        summary_parts.append("\n**By Device Type:**")
+        for dtype, count in sorted(by_device_type.items()):
+            summary_parts.append(f"  [DEV] {dtype}: {count}")
+
+    # Classification breakdown
+    if by_classification:
+        summary_parts.append("\n**By Classification:**")
+        class_labels = {"Security Patch": "[SEC]", "Bug Fix": "[BUG]", "Feature Release": "[FEAT]"}
+        for classification, count in sorted(by_classification.items()):
+            label = class_labels.get(classification, "[--]")
+            summary_parts.append(f"  {label} {classification}: {count}")
+
+    # Devices needing updates (top priority)
+    if devices_needing_updates:
+        summary_parts.append(f"\n**Devices Needing Updates ({len(devices_needing_updates)}):**")
+        for i, device in enumerate(devices_needing_updates[:10], 1):  # Top 10
+            priority = "[REQ]" if device["status"] == "Update Required" else "[AVAIL]"
+            summary_parts.append(
+                f"  {i}. {priority} {device['name']} ({device['serial']}): "
+                f"{device['current']} -> {device['recommended']}"
+            )
+        if len(devices_needing_updates) > 10:
+            summary_parts.append(f"  ... and {len(devices_needing_updates) - 10} more")
+
+    # Pagination info
+    if next_cursor:
+        summary_parts.append("\n[MORE] Results available (use next cursor)")
+
+    summary = "\n".join(summary_parts)
+
+    # Step 6: Return formatted response
+    return [TextContent(type="text", text=f"{summary}\n\n{_format_json(data)}")]
