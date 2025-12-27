@@ -2,20 +2,15 @@
 Get Gateway CPU Utilization - MCP tools for gateway CPU utilization monitoring in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import format_json
 
 logger = logging.getLogger("aruba-noc-server")
-
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 
 async def handle_get_gateway_cpu_utilization(args: dict[str, Any]) -> list[TextContent]:
@@ -28,10 +23,9 @@ async def handle_get_gateway_cpu_utilization(args: dict[str, Any]) -> list[TextC
     serial = args.get("serial")
 
     if not serial:
-        return [TextContent(
-            type="text",
-            text="[ERR] Parameter 'serial' is required. Provide the gateway serial number."
-        )]
+        return [
+            TextContent(type="text", text="[ERR] Parameter 'serial' is required. Provide the gateway serial number.")
+        ]
 
     # Step 2: Extract optional parameters
     params = {}
@@ -44,10 +38,7 @@ async def handle_get_gateway_cpu_utilization(args: dict[str, Any]) -> list[TextC
         params["end-time"] = args["end_time"]
 
     # Step 3: Call Aruba API
-    data = await call_aruba_api(
-        f"/network-monitoring/v1alpha1/gateways/{serial}/cpu-utilization",
-        params=params
-    )
+    data = await call_aruba_api(f"/network-monitoring/v1alpha1/gateways/{serial}/cpu-utilization", params=params)
 
     # Step 4: Extract and analyze data
     samples = data.get("samples", [])
@@ -55,7 +46,7 @@ async def handle_get_gateway_cpu_utilization(args: dict[str, Any]) -> list[TextC
 
     if total_samples == 0:
         summary = f"[INFO] No CPU data available for gateway {serial}\n"
-        return [TextContent(type="text", text=f"{summary}\n{_format_json(data)}")]
+        return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
 
     # Calculate statistics
     cpu_values = [s.get("cpuPercent", 0) for s in samples]
@@ -90,4 +81,4 @@ async def handle_get_gateway_cpu_utilization(args: dict[str, Any]) -> list[TextC
     summary = "\n".join(summary_parts)
 
     # Step 6: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n\n{_format_json(data)}")]
+    return [TextContent(type="text", text=f"{summary}\n\n{format_json(data)}")]

@@ -2,7 +2,6 @@
 Get Switch Interfaces - MCP tools for switch interfaces retrieval in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
@@ -10,13 +9,10 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import format_json
 
 logger = logging.getLogger("aruba-noc-server")
 
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent]:
     """Tool 30: Get Switch Interfaces - /network-monitoring/v1alpha1/switch/{serial}/interfaces"""
@@ -25,22 +21,20 @@ async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent
     serial = args.get("serial")
 
     if not serial:
-        return [TextContent(
-            type="text",
-            text="[ERR] Parameter 'serial' is required. Provide the switch serial number."
-        )]
+        return [
+            TextContent(type="text", text="[ERR] Parameter 'serial' is required. Provide the switch serial number.")
+        ]
 
     # Step 2: Call Aruba API
     try:
-        data = await call_aruba_api(
-            f"/network-monitoring/v1alpha1/switch/{serial}/interfaces"
-        )
+        data = await call_aruba_api(f"/network-monitoring/v1alpha1/switch/{serial}/interfaces")
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return [TextContent(
-                type="text",
-                text=f"[ERR] Switch with serial '{serial}' not found. Verify the serial number."
-            )]
+            return [
+                TextContent(
+                    type="text", text=f"[ERR] Switch with serial '{serial}' not found. Verify the serial number."
+                )
+            ]
         raise
 
     # Step 3: Extract interface data
@@ -49,10 +43,7 @@ async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent
     model = data.get("model", "Unknown")
 
     if not interfaces:
-        return [TextContent(
-            type="text",
-            text=f"[INFO] Switch '{switch_name}' has no interfaces reported."
-        )]
+        return [TextContent(type="text", text=f"[INFO] Switch '{switch_name}' has no interfaces reported.")]
 
     # Step 4: Filter by status if requested
     status_filter = args.get("status_filter", "ALL")
@@ -72,8 +63,9 @@ async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent
     total_poe_power = sum(iface.get("poePowerConsumption", 0) for iface in data.get("interfaces", []))
 
     # Interfaces with errors
-    error_ports = [iface for iface in data.get("interfaces", [])
-                   if iface.get("crcErrors", 0) > 0 or iface.get("collisions", 0) > 0]
+    error_ports = [
+        iface for iface in data.get("interfaces", []) if iface.get("crcErrors", 0) > 0 or iface.get("collisions", 0) > 0
+    ]
 
     # Step 5: Create interface summary
     summary = "[PORT] Switch Interface Report\n"
@@ -172,7 +164,4 @@ async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent
             summary += f"  [OK] PoE budget healthy - {poe_usage_pct:.1f}% used\n"
 
     # Step 6: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]

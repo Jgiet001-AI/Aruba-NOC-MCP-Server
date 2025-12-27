@@ -2,7 +2,6 @@
 Get AP CPU Utilization - MCP tools for access point CPU utilization monitoring in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
@@ -10,13 +9,10 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import format_json
 
 logger = logging.getLogger("aruba-noc-server")
 
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_ap_cpu_utilization(args: dict[str, Any]) -> list[TextContent]:
     """Tool 15: Get AP CPU Utilization - /network-monitoring/v1alpha1/aps/{serial}/cpu-utilization-trends"""
@@ -24,10 +20,7 @@ async def handle_get_ap_cpu_utilization(args: dict[str, Any]) -> list[TextConten
     # Step 1: Validate required parameter
     serial = args.get("serial")
     if not serial:
-        return [TextContent(
-            type="text",
-            text="[ERR] Parameter 'serial' is required. Provide the AP serial number."
-        )]
+        return [TextContent(type="text", text="[ERR] Parameter 'serial' is required. Provide the AP serial number.")]
 
     # Step 2: Build query parameters
     params = {}
@@ -39,16 +32,12 @@ async def handle_get_ap_cpu_utilization(args: dict[str, Any]) -> list[TextConten
 
     # Step 3: Call Aruba API
     try:
-        data = await call_aruba_api(
-            f"/network-monitoring/v1alpha1/aps/{serial}/cpu-utilization-trends",
-            params=params
-        )
+        data = await call_aruba_api(f"/network-monitoring/v1alpha1/aps/{serial}/cpu-utilization-trends", params=params)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return [TextContent(
-                type="text",
-                text=f"[ERR] AP with serial '{serial}' not found. Verify the serial number."
-            )]
+            return [
+                TextContent(type="text", text=f"[ERR] AP with serial '{serial}' not found. Verify the serial number.")
+            ]
         raise
 
     # Step 4: Extract trend data
@@ -105,7 +94,4 @@ async def handle_get_ap_cpu_utilization(args: dict[str, Any]) -> list[TextConten
         summary += "\n[INFO] Recommendation: Consider reducing client load or upgrading AP hardware\n"
 
     # Step 6: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]

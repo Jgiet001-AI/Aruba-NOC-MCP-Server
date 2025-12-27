@@ -2,7 +2,6 @@
 Get Stack Members - MCP tools for stack members retrieval in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
@@ -10,13 +9,10 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import format_json
 
 logger = logging.getLogger("aruba-noc-server")
 
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_stack_members(args: dict[str, Any]) -> list[TextContent]:
     """Tool 29: Get Stack Members - /network-monitoring/v1alpha1/stack/{stack-id}/members"""
@@ -25,22 +21,14 @@ async def handle_get_stack_members(args: dict[str, Any]) -> list[TextContent]:
     stack_id = args.get("stack_id")
 
     if not stack_id:
-        return [TextContent(
-            type="text",
-            text="[ERR] Parameter 'stack_id' is required. Provide the stack identifier."
-        )]
+        return [TextContent(type="text", text="[ERR] Parameter 'stack_id' is required. Provide the stack identifier.")]
 
     # Step 2: Call Aruba API
     try:
-        data = await call_aruba_api(
-            f"/network-monitoring/v1alpha1/stack/{stack_id}/members"
-        )
+        data = await call_aruba_api(f"/network-monitoring/v1alpha1/stack/{stack_id}/members")
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return [TextContent(
-                type="text",
-                text=f"[ERR] Stack '{stack_id}' not found. Verify the stack ID or name."
-            )]
+            return [TextContent(type="text", text=f"[ERR] Stack '{stack_id}' not found. Verify the stack ID or name.")]
         raise
 
     # Step 3: Extract stack member data
@@ -49,10 +37,7 @@ async def handle_get_stack_members(args: dict[str, Any]) -> list[TextContent]:
     stack_status = data.get("stackStatus", "UNKNOWN")
 
     if not members:
-        return [TextContent(
-            type="text",
-            text=f"[INFO] Stack '{stack_name}' has no members (empty stack)."
-        )]
+        return [TextContent(type="text", text=f"[INFO] Stack '{stack_name}' has no members (empty stack).")]
 
     # Step 4: Analyze stack topology
     commander = None
@@ -108,10 +93,10 @@ async def handle_get_stack_members(args: dict[str, Any]) -> list[TextContent]:
     if regular_members:
         summary += f"\n[MEMBER] Members ({len(regular_members)}):\n"
         for member in regular_members:
-            pos = member.get('stackPosition', '?')
-            name = member.get('deviceName', 'Unknown')
-            status = member.get('status', 'UNKNOWN')
-            model = member.get('model', 'N/A')
+            pos = member.get("stackPosition", "?")
+            name = member.get("deviceName", "Unknown")
+            status = member.get("status", "UNKNOWN")
+            model = member.get("model", "N/A")
 
             status_label = "[UP]" if status == "UP" else "[DN]"
 
@@ -132,7 +117,7 @@ async def handle_get_stack_members(args: dict[str, Any]) -> list[TextContent]:
         summary += "  [WARN] No standby configured - no redundancy\n"
 
     # Version consistency check
-    versions = {member.get('swVersion', 'N/A') for member in members}
+    versions = {member.get("swVersion", "N/A") for member in members}
     if len(versions) > 1:
         summary += "  [WARN] Mixed software versions detected - recommend upgrade\n"
         summary += f"     Versions: {', '.join(versions)}\n"
@@ -140,7 +125,4 @@ async def handle_get_stack_members(args: dict[str, Any]) -> list[TextContent]:
         summary += "  [OK] Consistent software version across stack\n"
 
     # Step 6: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]

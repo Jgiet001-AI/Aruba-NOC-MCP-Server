@@ -2,7 +2,6 @@
 Get Site Details - MCP tools for site details retrieval in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
@@ -10,13 +9,10 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import format_json
 
 logger = logging.getLogger("aruba-noc-server")
 
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_site_details(args: dict[str, Any]) -> list[TextContent]:
     """Tool 6: Get Site Details - /network-monitoring/v1alpha1/site-health/{site-id}"""
@@ -24,23 +20,17 @@ async def handle_get_site_details(args: dict[str, Any]) -> list[TextContent]:
     # Step 1: Validate required parameter
     site_id = args.get("site_id")
     if not site_id:
-        return [TextContent(
-            type="text",
-            text="[ERR] Parameter 'site_id' is required. Please provide the site ID."
-        )]
+        return [TextContent(type="text", text="[ERR] Parameter 'site_id' is required. Please provide the site ID.")]
 
     # Step 2: Call Aruba API (path parameter)
     # CRITICAL: API uses hyphenated path: site-health/{site-id}
     try:
-        data = await call_aruba_api(
-            f"/network-monitoring/v1alpha1/site-health/{site_id}"
-        )
+        data = await call_aruba_api(f"/network-monitoring/v1alpha1/site-health/{site_id}")
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return [TextContent(
-                type="text",
-                text=f"[ERR] Site with ID '{site_id}' not found. Please verify the site ID."
-            )]
+            return [
+                TextContent(type="text", text=f"[ERR] Site with ID '{site_id}' not found. Please verify the site ID.")
+            ]
         raise
 
     # Step 3: Extract site details
@@ -72,11 +62,7 @@ async def handle_get_site_details(args: dict[str, Any]) -> list[TextContent]:
     upload_mbps = bandwidth.get("uploadMbps", 0)
 
     # Step 4: Create detailed summary with professional labels
-    health_label = {
-        "GOOD": "[OK]",
-        "FAIR": "[WARN]",
-        "POOR": "[CRIT]"
-    }.get(health, "[--]")
+    health_label = {"GOOD": "[OK]", "FAIR": "[WARN]", "POOR": "[CRIT]"}.get(health, "[--]")
 
     summary = f"[SITE] Site Details: {site_name} (ID: {site_id})\n"
     summary += f"\n[STATS] Health: {health_label} {health}\n"
@@ -116,7 +102,4 @@ async def handle_get_site_details(args: dict[str, Any]) -> list[TextContent]:
         summary += f"[WARN] Action Required: {critical_alerts} critical alerts\n"
 
     # Step 5: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]

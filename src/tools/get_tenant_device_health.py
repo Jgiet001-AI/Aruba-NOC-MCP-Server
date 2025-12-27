@@ -2,28 +2,22 @@
 Get Tenant Device Health - MCP tools for tenant device health monitoring in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import format_json
 
 logger = logging.getLogger("aruba-noc-server")
 
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_tenant_device_health(args: dict[str, Any]) -> list[TextContent]:
     """Tool 7: Get Tenant Device Health - /network-monitoring/v1alpha1/tenant-device-health"""
 
     # Step 1: Call Aruba API (no parameters needed)
-    data = await call_aruba_api(
-        "/network-monitoring/v1alpha1/tenant-device-health"
-    )
+    data = await call_aruba_api("/network-monitoring/v1alpha1/tenant-device-health")
 
     # Step 2: Extract overall health metrics
     overall_health = data.get("overallHealth", "UNKNOWN").upper()
@@ -51,11 +45,7 @@ async def handle_get_tenant_device_health(args: dict[str, Any]) -> list[TextCont
     online_pct = (online_devices / total_devices * 100) if total_devices > 0 else 0
 
     # Step 3: Create executive summary with professional labels
-    health_label = {
-        "GOOD": "[OK]",
-        "FAIR": "[WARN]",
-        "POOR": "[CRIT]"
-    }.get(overall_health, "[--]")
+    health_label = {"GOOD": "[OK]", "FAIR": "[WARN]", "POOR": "[CRIT]"}.get(overall_health, "[--]")
 
     summary = "[NET] Organization-Wide Network Health\n"
     summary += f"\n[STATUS] Overall Status: {health_label} {overall_health} ({health_score}%)\n"
@@ -93,7 +83,4 @@ async def handle_get_tenant_device_health(args: dict[str, Any]) -> list[TextCont
         summary += f"[WARN] Alert: {offline_devices} devices offline (>{5}%)\n"
 
     # Step 4: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]

@@ -2,7 +2,6 @@
 Get Async Test Result - MCP tools for async test result retrieval in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
@@ -10,13 +9,9 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import format_json
 
 logger = logging.getLogger("aruba-noc-server")
-
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 
 async def handle_get_async_test_result(args: dict[str, Any]) -> list[TextContent]:
@@ -26,23 +21,23 @@ async def handle_get_async_test_result(args: dict[str, Any]) -> list[TextContent
     task_id = args.get("task_id")
 
     if not task_id:
-        return [TextContent(
-            type="text",
-            text="[ERR] Parameter 'task_id' is required. Provide the task ID from the initial test."
-        )]
+        return [
+            TextContent(
+                type="text", text="[ERR] Parameter 'task_id' is required. Provide the task ID from the initial test."
+            )
+        ]
 
     # Step 2: Call Aruba API
     # Note: Endpoint uses wildcard (*) for device type - API routes based on task_id
     try:
-        data = await call_aruba_api(
-            f"/network-troubleshooting/v1alpha1/async-operations/{task_id}"
-        )
+        data = await call_aruba_api(f"/network-troubleshooting/v1alpha1/async-operations/{task_id}")
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return [TextContent(
-                type="text",
-                text=f"[ERR] Task '{task_id}' not found. Verify the task ID or it may have expired."
-            )]
+            return [
+                TextContent(
+                    type="text", text=f"[ERR] Task '{task_id}' not found. Verify the task ID or it may have expired."
+                )
+            ]
         raise
 
     # Step 3: Extract status and results
@@ -136,7 +131,4 @@ async def handle_get_async_test_result(args: dict[str, Any]) -> list[TextContent
         summary = f"[--] Unknown Status: {status}\n"
 
     # Step 5: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]

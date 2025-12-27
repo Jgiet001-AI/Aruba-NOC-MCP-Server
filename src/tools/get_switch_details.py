@@ -1,10 +1,7 @@
-
-
 """
 Get Switch Details - MCP tools for switch details in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
@@ -12,15 +9,9 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import format_json
 
 logger = logging.getLogger("aruba-noc-server")
-
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
-
-
 
 
 async def handle_get_switch_details(args: dict[str, Any]) -> list[TextContent]:
@@ -29,22 +20,22 @@ async def handle_get_switch_details(args: dict[str, Any]) -> list[TextContent]:
     # Step 1: Validate required parameter
     serial = args.get("serial")
     if not serial:
-        return [TextContent(
-            type="text",
-            text="[ERR] Parameter 'serial' is required. Please provide the switch serial number."
-        )]
+        return [
+            TextContent(
+                type="text", text="[ERR] Parameter 'serial' is required. Please provide the switch serial number."
+            )
+        ]
 
     # Step 2: Call Aruba API (path parameter, not query param)
     try:
-        data = await call_aruba_api(
-            f"/network-monitoring/v1alpha1/switch/{serial}"
-        )
+        data = await call_aruba_api(f"/network-monitoring/v1alpha1/switch/{serial}")
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return [TextContent(
-                type="text",
-                text=f"[ERR] Switch with serial '{serial}' not found. Please verify the serial number."
-            )]
+            return [
+                TextContent(
+                    type="text", text=f"[ERR] Switch with serial '{serial}' not found. Please verify the serial number."
+                )
+            ]
         raise
 
     # Step 3: Extract switch details
@@ -81,7 +72,4 @@ async def handle_get_switch_details(args: dict[str, Any]) -> list[TextContent]:
         summary += f"[WARN] High Memory: {mem_util}%\n"
 
     # Step 5: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]

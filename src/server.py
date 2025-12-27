@@ -93,7 +93,7 @@ async def list_tools() -> list[Tool]:
                         "type": "integer",
                         "description": "Maximum number of devices to return (default: 100)",
                         "minimum": 1,
-                        "maximum": 1000,
+                        "maximum": 100,
                         "default": 100,
                     },
                     "next": {
@@ -177,7 +177,7 @@ async def list_tools() -> list[Tool]:
                         "type": "integer",
                         "description": "Maximum number of clients to return (default: 100)",
                         "minimum": 1,
-                        "maximum": 1000,
+                        "maximum": 100,
                         "default": 100,
                     },
                     "next": {
@@ -240,7 +240,7 @@ async def list_tools() -> list[Tool]:
                         "type": "integer",
                         "description": "Maximum number of results (default: 100)",
                         "minimum": 1,
-                        "maximum": 1000,
+                        "maximum": 100,
                         "default": 100,
                     },
                     "next": {"type": "string", "description": "Pagination cursor token"},
@@ -293,7 +293,7 @@ async def list_tools() -> list[Tool]:
                         "type": "integer",
                         "description": "Maximum number of gateways to return (default: 100)",
                         "minimum": 1,
-                        "maximum": 1000,
+                        "maximum": 100,
                         "default": 100,
                     },
                     "next": {"type": "string", "description": "Pagination cursor token"},
@@ -328,7 +328,7 @@ async def list_tools() -> list[Tool]:
                         "type": "integer",
                         "description": "Maximum number of sites to return per page (default: 100)",
                         "minimum": 1,
-                        "maximum": 1000,
+                        "maximum": 100,
                         "default": 100,
                     },
                     "offset": {
@@ -364,28 +364,24 @@ async def list_tools() -> list[Tool]:
                             "OData v4.0 filter criteria. Available fields: deviceType, model, "
                             "subscriptionTier, siteId. Examples: 'deviceType eq ACCESS_POINT', "
                             "'subscriptionTier eq Foundation', 'model eq AP-515'"
-                        )
+                        ),
                     },
                     "sort": {
                         "type": "string",
                         "description": (
-                            "Sort order. Available fields: deviceName, model, deviceType, siteId. "
-                            "Example: 'model asc'"
-                        )
+                            "Sort order. Available fields: deviceName, model, deviceType, siteId. Example: 'model asc'"
+                        ),
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of devices to return (default: 100)",
                         "minimum": 1,
-                        "maximum": 1000,
-                        "default": 100
+                        "maximum": 100,
+                        "default": 100,
                     },
-                    "next": {
-                        "type": "string",
-                        "description": "Pagination cursor token for next page"
-                    }
-                }
-            }
+                    "next": {"type": "string", "description": "Pagination cursor token for next page"},
+                },
+            },
         ),
         Tool(
             name="get_switch_details",
@@ -407,11 +403,11 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "serial": {
                         "type": "string",
-                        "description": "Serial number of the switch (required). Example: CN12345678"
+                        "description": "Serial number of the switch (required). Example: CN12345678",
                     }
                 },
-                "required": ["serial"]
-            }
+                "required": ["serial"],
+            },
         ),
         Tool(
             name="get_ap_details",
@@ -434,11 +430,11 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "serial_number": {
                         "type": "string",
-                        "description": "Serial number of the access point (required). Example: SN12345678"
+                        "description": "Serial number of the access point (required). Example: SN12345678",
                     }
                 },
-                "required": ["serial_number"]
-            }
+                "required": ["serial_number"],
+            },
         ),
         Tool(
             name="get_site_details",
@@ -458,13 +454,10 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "site_id": {
-                        "type": "string",
-                        "description": "Site identifier (required). Example: 12345"
-                    }
+                    "site_id": {"type": "string", "description": "Site identifier (required). Example: 12345"}
                 },
-                "required": ["site_id"]
-            }
+                "required": ["site_id"],
+            },
         ),
         Tool(
             name="get_tenant_device_health",
@@ -481,10 +474,7 @@ async def list_tools() -> list[Tool]:
                 "DO NOT USE when the user wants site-by-site breakdown - use get_sites_health instead. "
                 "DO NOT USE when the user wants specific site details - use get_site_details instead."
             ),
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
+            inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
             name="get_client_trends",
@@ -504,17 +494,14 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "site_id": {
-                        "type": "string",
-                        "description": "Filter trends by specific site ID (optional)"
-                    },
+                    "site_id": {"type": "string", "description": "Filter trends by specific site ID (optional)"},
                     "start_time": {
                         "type": "string",
                         "description": (
                             "Start time for trend analysis in RFC 3339 format (ISO 8601). "
                             "Example: 2024-12-18T00:00:00Z. Defaults to 24 hours ago if not specified."
                         ),
-                        "format": "date-time"
+                        "format": "date-time",
                     },
                     "end_time": {
                         "type": "string",
@@ -522,19 +509,18 @@ async def list_tools() -> list[Tool]:
                             "End time for trend analysis in RFC 3339 format (ISO 8601). "
                             "Example: 2024-12-25T23:59:59Z. Defaults to now if not specified."
                         ),
-                        "format": "date-time"
+                        "format": "date-time",
                     },
                     "interval": {
                         "type": "string",
                         "description": (
-                            "Data point interval. Options: '5min', '15min', '1hour', '1day'. "
-                            "Default: '1hour'"
+                            "Data point interval. Options: '5min', '15min', '1hour', '1day'. Default: '1hour'"
                         ),
                         "enum": ["5min", "15min", "1hour", "1day"],
-                        "default": "1hour"
-                    }
-                }
-            }
+                        "default": "1hour",
+                    },
+                },
+            },
         ),
         Tool(
             name="get_gateway_details",
@@ -558,11 +544,11 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "serial_number": {
                         "type": "string",
-                        "description": "Serial number of the gateway (required). Example: SN12345678"
+                        "description": "Serial number of the gateway (required). Example: SN12345678",
                     }
                 },
-                "required": ["serial_number"]
-            }
+                "required": ["serial_number"],
+            },
         ),
         Tool(
             name="get_top_aps_by_bandwidth",
@@ -582,28 +568,24 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "site_id": {
-                        "type": "string",
-                        "description": "Filter by specific site ID (optional)"
-                    },
+                    "site_id": {"type": "string", "description": "Filter by specific site ID (optional)"},
                     "limit": {
                         "type": "integer",
                         "description": "Number of top APs to return (default: 10)",
                         "minimum": 1,
                         "maximum": 100,
-                        "default": 10
+                        "default": 100,
                     },
                     "time_range": {
                         "type": "string",
                         "description": (
-                            "Time period for analysis: '1hour', '24hours', '7days', "
-                            "'30days' (default: '24hours')"
+                            "Time period for analysis: '1hour', '24hours', '7days', '30days' (default: '24hours')"
                         ),
                         "enum": ["1hour", "24hours", "7days", "30days"],
-                        "default": "24hours"
-                    }
-                }
-            }
+                        "default": "24hours",
+                    },
+                },
+            },
         ),
         Tool(
             name="get_top_clients_by_usage",
@@ -623,31 +605,28 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "site_id": {
-                        "type": "string",
-                        "description": "Filter by specific site ID (optional)"
-                    },
+                    "site_id": {"type": "string", "description": "Filter by specific site ID (optional)"},
                     "limit": {
                         "type": "integer",
                         "description": "Number of top clients to return (default: 10)",
                         "minimum": 1,
                         "maximum": 100,
-                        "default": 10
+                        "default": 100,
                     },
                     "time_range": {
                         "type": "string",
                         "description": "Time period: '1hour', '24hours', '7days' (default: '24hours')",
                         "enum": ["1hour", "24hours", "7days"],
-                        "default": "24hours"
+                        "default": "24hours",
                     },
                     "connection_type": {
                         "type": "string",
                         "description": "Filter by connection: 'WIRELESS', 'WIRED', or 'ALL' (default: 'ALL')",
                         "enum": ["WIRELESS", "WIRED", "ALL"],
-                        "default": "ALL"
-                    }
-                }
-            }
+                        "default": "ALL",
+                    },
+                },
+            },
         ),
         Tool(
             name="get_ap_cpu_utilization",
@@ -668,29 +647,26 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "serial": {
-                        "type": "string",
-                        "description": "Serial number of the access point (required)"
-                    },
+                    "serial": {"type": "string", "description": "Serial number of the access point (required)"},
                     "start_time": {
                         "type": "string",
                         "description": "Start time in RFC 3339 format (default: 24 hours ago)",
-                        "format": "date-time"
+                        "format": "date-time",
                     },
                     "end_time": {
                         "type": "string",
                         "description": "End time in RFC 3339 format (default: now)",
-                        "format": "date-time"
+                        "format": "date-time",
                     },
                     "interval": {
                         "type": "string",
                         "description": "Data interval: '5min', '1hour' (default: '1hour')",
                         "enum": ["5min", "1hour"],
-                        "default": "1hour"
-                    }
+                        "default": "1hour",
+                    },
                 },
-                "required": ["serial"]
-            }
+                "required": ["serial"],
+            },
         ),
         Tool(
             name="get_gateway_cpu_utilization",
@@ -711,29 +687,26 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "serial": {
-                        "type": "string",
-                        "description": "Serial number of the gateway (required)"
-                    },
+                    "serial": {"type": "string", "description": "Serial number of the gateway (required)"},
                     "start_time": {
                         "type": "string",
                         "description": "Start time in RFC 3339 format (default: 24 hours ago)",
-                        "format": "date-time"
+                        "format": "date-time",
                     },
                     "end_time": {
                         "type": "string",
                         "description": "End time in RFC 3339 format (default: now)",
-                        "format": "date-time"
+                        "format": "date-time",
                     },
                     "interval": {
                         "type": "string",
                         "description": "Data interval: '5min', '1hour' (default: '1hour')",
                         "enum": ["5min", "1hour"],
-                        "default": "1hour"
-                    }
+                        "default": "1hour",
+                    },
                 },
-                "required": ["serial"]
-            }
+                "required": ["serial"],
+            },
         ),
         Tool(
             name="list_wlans",
@@ -751,19 +724,16 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "site_id": {
-                        "type": "string",
-                        "description": "Filter WLANs by specific site ID (optional)"
-                    },
+                    "site_id": {"type": "string", "description": "Filter WLANs by specific site ID (optional)"},
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of WLANs to return (default: 100)",
                         "minimum": 1,
-                        "maximum": 1000,
-                        "default": 100
-                    }
-                }
-            }
+                        "maximum": 100,
+                        "default": 100,
+                    },
+                },
+            },
         ),
         Tool(
             name="get_wlan_details",
@@ -782,13 +752,10 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "wlan_name": {
-                        "type": "string",
-                        "description": "Name of the WLAN/SSID to retrieve (required)"
-                    }
+                    "wlan_name": {"type": "string", "description": "Name of the WLAN/SSID to retrieve (required)"}
                 },
-                "required": ["wlan_name"]
-            }
+                "required": ["wlan_name"],
+            },
         ),
         Tool(
             name="get_ap_radios",
@@ -808,13 +775,10 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "serial": {
-                        "type": "string",
-                        "description": "Serial number of the access point (required)"
-                    }
+                    "serial": {"type": "string", "description": "Serial number of the access point (required)"}
                 },
-                "required": ["serial"]
-            }
+                "required": ["serial"],
+            },
         ),
         Tool(
             name="get_gateway_cluster_info",
@@ -835,13 +799,10 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "cluster_name": {
-                        "type": "string",
-                        "description": "Name of the gateway cluster (required)"
-                    }
+                    "cluster_name": {"type": "string", "description": "Name of the gateway cluster (required)"}
                 },
-                "required": ["cluster_name"]
-            }
+                "required": ["cluster_name"],
+            },
         ),
         Tool(
             name="list_gateway_tunnels",
@@ -860,20 +821,17 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "cluster_name": {
-                        "type": "string",
-                        "description": "Name of the gateway cluster (required)"
-                    },
+                    "cluster_name": {"type": "string", "description": "Name of the gateway cluster (required)"},
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of tunnels to return (default: 100)",
                         "minimum": 1,
-                        "maximum": 1000,
-                        "default": 100
-                    }
+                        "maximum": 100,
+                        "default": 100,
+                    },
                 },
-                "required": ["cluster_name"]
-            }
+                "required": ["cluster_name"],
+            },
         ),
         Tool(
             name="get_gateway_uplinks",
@@ -893,14 +851,9 @@ async def list_tools() -> list[Tool]:
             ),
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "serial": {
-                        "type": "string",
-                        "description": "Serial number of the gateway (required)"
-                    }
-                },
-                "required": ["serial"]
-            }
+                "properties": {"serial": {"type": "string", "description": "Serial number of the gateway (required)"}},
+                "required": ["serial"],
+            },
         ),
         Tool(
             name="ping_from_ap",
@@ -920,31 +873,25 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "serial": {
-                        "type": "string",
-                        "description": "Serial number of the access point (required)"
-                    },
-                    "target": {
-                        "type": "string",
-                        "description": "Target hostname or IP address to ping (required)"
-                    },
+                    "serial": {"type": "string", "description": "Serial number of the access point (required)"},
+                    "target": {"type": "string", "description": "Target hostname or IP address to ping (required)"},
                     "count": {
                         "type": "integer",
                         "description": "Number of ping packets to send (default: 5)",
                         "minimum": 1,
                         "maximum": 100,
-                        "default": 5
+                        "default": 5,
                     },
                     "packet_size": {
                         "type": "integer",
                         "description": "Size of ping packets in bytes (default: 64)",
                         "minimum": 32,
                         "maximum": 1500,
-                        "default": 64
-                    }
+                        "default": 64,
+                    },
                 },
-                "required": ["serial", "target"]
-            }
+                "required": ["serial", "target"],
+            },
         ),
         Tool(
             name="ping_from_gateway",
@@ -964,28 +911,22 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "serial": {
-                        "type": "string",
-                        "description": "Serial number of the gateway (required)"
-                    },
-                    "target": {
-                        "type": "string",
-                        "description": "Target hostname or IP address to ping (required)"
-                    },
+                    "serial": {"type": "string", "description": "Serial number of the gateway (required)"},
+                    "target": {"type": "string", "description": "Target hostname or IP address to ping (required)"},
                     "count": {
                         "type": "integer",
                         "description": "Number of ping packets to send (default: 5)",
                         "minimum": 1,
                         "maximum": 100,
-                        "default": 5
+                        "default": 5,
                     },
                     "source_interface": {
                         "type": "string",
-                        "description": "Source WAN interface to use (optional, uses primary by default)"
-                    }
+                        "description": "Source WAN interface to use (optional, uses primary by default)",
+                    },
                 },
-                "required": ["serial", "target"]
-            }
+                "required": ["serial", "target"],
+            },
         ),
         Tool(
             name="traceroute_from_ap",
@@ -1006,24 +947,21 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "serial": {
-                        "type": "string",
-                        "description": "Serial number of the access point (required)"
-                    },
+                    "serial": {"type": "string", "description": "Serial number of the access point (required)"},
                     "target": {
                         "type": "string",
-                        "description": "Target hostname or IP address for traceroute (required)"
+                        "description": "Target hostname or IP address for traceroute (required)",
                     },
                     "max_hops": {
                         "type": "integer",
                         "description": "Maximum number of hops to trace (default: 30)",
                         "minimum": 1,
                         "maximum": 64,
-                        "default": 30
-                    }
+                        "default": 30,
+                    },
                 },
-                "required": ["serial", "target"]
-            }
+                "required": ["serial", "target"],
+            },
         ),
         Tool(
             name="get_async_test_result",
@@ -1045,11 +983,11 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "task_id": {
                         "type": "string",
-                        "description": "Task ID returned from the initial async operation (required)"
+                        "description": "Task ID returned from the initial async operation (required)",
                     }
                 },
-                "required": ["task_id"]
-            }
+                "required": ["task_id"],
+            },
         ),
         Tool(
             name="list_idps_threats",
@@ -1074,31 +1012,28 @@ async def list_tools() -> list[Tool]:
                     "severity": {
                         "type": "string",
                         "description": "Filter by severity level",
-                        "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+                        "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
                     },
-                    "gateway_serial": {
-                        "type": "string",
-                        "description": "Filter threats detected by specific gateway"
-                    },
+                    "gateway_serial": {"type": "string", "description": "Filter threats detected by specific gateway"},
                     "start_time": {
                         "type": "string",
                         "description": "Start time for threat query (RFC 3339 format)",
-                        "format": "date-time"
+                        "format": "date-time",
                     },
                     "end_time": {
                         "type": "string",
                         "description": "End time for threat query (RFC 3339 format)",
-                        "format": "date-time"
+                        "format": "date-time",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of threats to return",
                         "minimum": 1,
-                        "maximum": 1000,
-                        "default": 100
-                    }
-                }
-            }
+                        "maximum": 100,
+                        "default": 100,
+                    },
+                },
+            },
         ),
         Tool(
             name="get_firewall_sessions",
@@ -1119,29 +1054,22 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "site_id": {
-                        "type": "string",
-                        "description": "Filter sessions by site ID"
-                    },
+                    "site_id": {"type": "string", "description": "Filter sessions by site ID"},
                     "status": {
                         "type": "string",
                         "description": "Filter by session status",
-                        "enum": ["ACTIVE", "CLOSED", "BLOCKED"]
+                        "enum": ["ACTIVE", "CLOSED", "BLOCKED"],
                     },
-                    "protocol": {
-                        "type": "string",
-                        "description": "Filter by protocol",
-                        "enum": ["TCP", "UDP", "ICMP"]
-                    },
+                    "protocol": {"type": "string", "description": "Filter by protocol", "enum": ["TCP", "UDP", "ICMP"]},
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of sessions to return",
                         "minimum": 1,
-                        "maximum": 1000,
-                        "default": 100
-                    }
-                }
-            }
+                        "maximum": 100,
+                        "default": 100,
+                    },
+                },
+            },
         ),
         Tool(
             name="get_stack_members",
@@ -1164,11 +1092,11 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "stack_id": {
                         "type": "string",
-                        "description": "Stack identifier (required) - can be stack name or ID"
+                        "description": "Stack identifier (required) - can be stack name or ID",
                     }
                 },
-                "required": ["stack_id"]
-            }
+                "required": ["stack_id"],
+            },
         ),
         Tool(
             name="get_switch_interfaces",
@@ -1191,110 +1119,80 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "serial": {
-                        "type": "string",
-                        "description": "Switch serial number (required)"
-                    },
+                    "serial": {"type": "string", "description": "Switch serial number (required)"},
                     "status_filter": {
                         "type": "string",
                         "description": "Filter ports by status",
-                        "enum": ["UP", "DOWN", "ALL"]
-                    }
+                        "enum": ["UP", "DOWN", "ALL"],
+                    },
                 },
-                "required": ["serial"]
-            }
+                "required": ["serial"],
+            },
         ),
     ]
+
+
+# =============================================================================
+# TOOL HANDLER REGISTRY
+# =============================================================================
+# Registry pattern: Maps tool names to handler functions for clean dispatch
+
+TOOL_HANDLERS = {
+    # Core inventory and device tools
+    "get_device_list": handle_get_device_list,
+    "get_device_inventory": handle_get_device_inventory,
+    "get_sites_health": handle_get_sites_health,
+    "list_all_clients": handle_list_all_clients,
+    "list_gateways": handle_list_gateways,
+    "get_firmware_details": handle_get_firmware_details,
+    # Site and tenant tools
+    "get_site_details": handle_get_site_details,
+    "get_tenant_device_health": handle_get_tenant_device_health,
+    # AP tools
+    "get_ap_details": handle_get_ap_details,
+    "get_ap_cpu_utilization": handle_get_ap_cpu_utilization,
+    "get_ap_radios": handle_get_ap_radios,
+    # Switch tools
+    "get_switch_details": handle_get_switch_details,
+    "get_switch_interfaces": handle_get_switch_interfaces,
+    "get_stack_members": handle_get_stack_members,
+    # Gateway tools
+    "get_gateway_details": handle_get_gateway_details,
+    "get_gateway_cpu_utilization": handle_get_gateway_cpu_utilization,
+    "get_gateway_cluster_info": handle_get_gateway_cluster_info,
+    "get_gateway_uplinks": handle_get_gateway_uplinks,
+    "list_gateway_tunnels": handle_list_gateway_tunnels,
+    # WLAN tools
+    "list_wlans": handle_list_wlans,
+    "get_wlan_details": handle_get_wlan_details,
+    # Client and bandwidth tools
+    "get_client_trends": handle_get_client_trends,
+    "get_top_aps_by_bandwidth": handle_get_top_aps_by_bandwidth,
+    "get_top_clients_by_usage": handle_get_top_clients_by_usage,
+    # Network diagnostics (async operations)
+    "ping_from_ap": handle_ping_from_ap,
+    "ping_from_gateway": handle_ping_from_gateway,
+    "traceroute_from_ap": handle_traceroute_from_ap,
+    "get_async_test_result": handle_get_async_test_result,
+    # Security tools
+    "list_idps_threats": handle_list_idps_threats,
+    "get_firewall_sessions": handle_get_firewall_sessions,
+}
 
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> TextContent:
     """Dispatches a tool call to the appropriate handler."""
-
-    # Core inventory and device tools
-    if name == "get_device_list":
-        return await handle_get_device_list(arguments)
-    if name == "get_device_inventory":
-        return await handle_get_device_inventory(arguments)
-    if name == "get_sites_health":
-        return await handle_get_sites_health(arguments)
-    if name == "list_all_clients":
-        return await handle_list_all_clients(arguments)
-    if name == "list_gateways":
-        return await handle_list_gateways(arguments)
-    if name == "get_firmware_details":
-        return await handle_get_firmware_details(arguments)
-
-    # Site and tenant tools
-    if name == "get_site_details":
-        return await handle_get_site_details(arguments)
-    if name == "get_tenant_device_health":
-        return await handle_get_tenant_device_health(arguments)
-
-    # AP tools
-    if name == "get_ap_details":
-        return await handle_get_ap_details(arguments)
-    if name == "get_ap_cpu_utilization":
-        return await handle_get_ap_cpu_utilization(arguments)
-    if name == "get_ap_radios":
-        return await handle_get_ap_radios(arguments)
-
-    # Switch tools
-    if name == "get_switch_details":
-        return await handle_get_switch_details(arguments)
-    if name == "get_switch_interfaces":
-        return await handle_get_switch_interfaces(arguments)
-    if name == "get_stack_members":
-        return await handle_get_stack_members(arguments)
-
-    # Gateway tools
-    if name == "get_gateway_details":
-        return await handle_get_gateway_details(arguments)
-    if name == "get_gateway_cpu_utilization":
-        return await handle_get_gateway_cpu_utilization(arguments)
-    if name == "get_gateway_cluster_info":
-        return await handle_get_gateway_cluster_info(arguments)
-    if name == "get_gateway_uplinks":
-        return await handle_get_gateway_uplinks(arguments)
-    if name == "list_gateway_tunnels":
-        return await handle_list_gateway_tunnels(arguments)
-
-    # WLAN tools
-    if name == "list_wlans":
-        return await handle_list_wlans(arguments)
-    if name == "get_wlan_details":
-        return await handle_get_wlan_details(arguments)
-
-    # Client and bandwidth tools
-    if name == "get_client_trends":
-        return await handle_get_client_trends(arguments)
-    if name == "get_top_aps_by_bandwidth":
-        return await handle_get_top_aps_by_bandwidth(arguments)
-    if name == "get_top_clients_by_usage":
-        return await handle_get_top_clients_by_usage(arguments)
-
-    # Network diagnostics (async operations)
-    if name == "ping_from_ap":
-        return await handle_ping_from_ap(arguments)
-    if name == "ping_from_gateway":
-        return await handle_ping_from_gateway(arguments)
-    if name == "traceroute_from_ap":
-        return await handle_traceroute_from_ap(arguments)
-    if name == "get_async_test_result":
-        return await handle_get_async_test_result(arguments)
-
-    # Security tools
-    if name == "list_idps_threats":
-        return await handle_list_idps_threats(arguments)
-    if name == "get_firewall_sessions":
-        return await handle_get_firewall_sessions(arguments)
-
-    raise ValueError(f"Unknown tool: {name}")
+    handler = TOOL_HANDLERS.get(name)
+    if handler is None:
+        raise ValueError(f"Unknown tool: {name}")
+    return await handler(arguments)
 
 
 async def main():
     """Run the MCP server."""
     import sys
+
     print("Starting Aruba NOC Server...", file=sys.stderr)
 
     async with stdio_server() as (read_stream, write_stream):
@@ -1303,4 +1201,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())

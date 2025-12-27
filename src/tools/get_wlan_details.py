@@ -2,7 +2,6 @@
 Get WLAN Details - MCP tools for WLAN details retrieval in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
@@ -10,14 +9,10 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_bytes
+from src.tools.base import format_bytes, format_json
 
 logger = logging.getLogger("aruba-noc-server")
 
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_wlan_details(args: dict[str, Any]) -> list[TextContent]:
     """Tool 18: Get WLAN Details - /network-monitoring/v1alpha1/wlans/{wlan-name}"""
@@ -25,22 +20,18 @@ async def handle_get_wlan_details(args: dict[str, Any]) -> list[TextContent]:
     # Step 1: Validate required parameter
     wlan_name = args.get("wlan_name")
     if not wlan_name:
-        return [TextContent(
-            type="text",
-            text="[ERR] Parameter 'wlan_name' is required. Provide the WLAN/SSID name."
-        )]
+        return [TextContent(type="text", text="[ERR] Parameter 'wlan_name' is required. Provide the WLAN/SSID name.")]
 
     # Step 2: Call Aruba API
     try:
-        data = await call_aruba_api(
-            f"/network-monitoring/v1alpha1/wlans/{wlan_name}"
-        )
+        data = await call_aruba_api(f"/network-monitoring/v1alpha1/wlans/{wlan_name}")
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return [TextContent(
-                type="text",
-                text=f"[ERR] WLAN '{wlan_name}' not found. Verify the WLAN name and try again."
-            )]
+            return [
+                TextContent(
+                    type="text", text=f"[ERR] WLAN '{wlan_name}' not found. Verify the WLAN name and try again."
+                )
+            ]
         raise
 
     # Step 3: Extract WLAN configuration
@@ -97,7 +88,4 @@ async def handle_get_wlan_details(args: dict[str, Any]) -> list[TextContent]:
         summary += "  * Consider upgrading to WPA3 for enhanced security\n"
 
     # Step 5: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]

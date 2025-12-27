@@ -2,7 +2,6 @@
 Get Gateway Cluster Info - MCP tools for gateway cluster information in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
@@ -10,14 +9,10 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_uptime
+from src.tools.base import format_json, format_uptime
 
 logger = logging.getLogger("aruba-noc-server")
 
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_gateway_cluster_info(args: dict[str, Any]) -> list[TextContent]:
     """Tool 20: Get Gateway Cluster Info - /network-monitoring/v1alpha1/clusters/{cluster-name}"""
@@ -25,22 +20,16 @@ async def handle_get_gateway_cluster_info(args: dict[str, Any]) -> list[TextCont
     # Step 1: Validate required parameter
     cluster_name = args.get("cluster_name")
     if not cluster_name:
-        return [TextContent(
-            type="text",
-            text="[ERR] Parameter 'cluster_name' is required. Provide the cluster name."
-        )]
+        return [TextContent(type="text", text="[ERR] Parameter 'cluster_name' is required. Provide the cluster name.")]
 
     # Step 2: Call Aruba API
     try:
-        data = await call_aruba_api(
-            f"/network-monitoring/v1alpha1/clusters/{cluster_name}"
-        )
+        data = await call_aruba_api(f"/network-monitoring/v1alpha1/clusters/{cluster_name}")
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return [TextContent(
-                type="text",
-                text=f"[ERR] Cluster '{cluster_name}' not found. Verify the cluster name."
-            )]
+            return [
+                TextContent(type="text", text=f"[ERR] Cluster '{cluster_name}' not found. Verify the cluster name.")
+            ]
         raise
 
     # Step 3: Extract cluster data
@@ -132,7 +121,4 @@ async def handle_get_gateway_cluster_info(args: dict[str, Any]) -> list[TextCont
         summary += "  [OK] Cluster is healthy and redundant\n"
 
     # Step 5: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]

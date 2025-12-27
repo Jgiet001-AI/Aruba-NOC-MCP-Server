@@ -32,80 +32,80 @@ class StatusLabels:
     """
 
     # Status indicators
-    OK = "[OK]"          # Healthy, online, success
-    WARN = "[WARN]"      # Warning condition
-    CRIT = "[CRIT]"      # Critical issue
-    ERR = "[ERR]"        # Error state
-    INFO = "[INFO]"      # Informational note
+    OK = "[OK]"  # Healthy, online, success
+    WARN = "[WARN]"  # Warning condition
+    CRIT = "[CRIT]"  # Critical issue
+    ERR = "[ERR]"  # Error state
+    INFO = "[INFO]"  # Informational note
 
     # Online/Offline status
-    UP = "[UP]"          # Online, active
-    DN = "[DN]"          # Offline, down
+    UP = "[UP]"  # Online, active
+    DN = "[DN]"  # Offline, down
 
     # Connection types
-    WIFI = "[WIFI]"      # Wireless connection
-    WIRED = "[WIRED]"    # Wired connection
+    WIFI = "[WIFI]"  # Wireless connection
+    WIRED = "[WIRED]"  # Wired connection
 
     # Device types
-    AP = "[AP]"          # Access Point
-    SW = "[SW]"          # Switch
-    GW = "[GW]"          # Gateway
-    DEV = "[DEV]"        # Generic device
+    AP = "[AP]"  # Access Point
+    SW = "[SW]"  # Switch
+    GW = "[GW]"  # Gateway
+    DEV = "[DEV]"  # Generic device
 
     # Actions/States
-    AVAIL = "[AVAIL]"    # Available update
-    REQ = "[REQ]"        # Required update
-    IDLE = "[IDLE]"      # Idle state
-    MORE = "[MORE]"      # More results available (pagination)
-    ALERT = "[ALERT]"    # Alert condition
-    ASYNC = "[ASYNC]"    # Async operation pending
+    AVAIL = "[AVAIL]"  # Available update
+    REQ = "[REQ]"  # Required update
+    IDLE = "[IDLE]"  # Idle state
+    MORE = "[MORE]"  # More results available (pagination)
+    ALERT = "[ALERT]"  # Alert condition
+    ASYNC = "[ASYNC]"  # Async operation pending
 
     # Categories
-    SEC = "[SEC]"        # Security-related
-    BUG = "[BUG]"        # Bug fix
-    FEAT = "[FEAT]"      # Feature release
-    HW = "[HW]"          # Hardware
-    CLI = "[CLI]"        # Client
-    VPN = "[VPN]"        # VPN/Tunnel
-    NET = "[NET]"        # Network
+    SEC = "[SEC]"  # Security-related
+    BUG = "[BUG]"  # Bug fix
+    FEAT = "[FEAT]"  # Feature release
+    HW = "[HW]"  # Hardware
+    CLI = "[CLI]"  # Client
+    VPN = "[VPN]"  # VPN/Tunnel
+    NET = "[NET]"  # Network
 
     # Data/Stats
-    STATS = "[STATS]"    # Statistics
-    TREND = "[TREND]"    # Trend data
-    DATA = "[DATA]"      # Data metrics
-    RANK = "[RANK]"      # Ranking information
+    STATS = "[STATS]"  # Statistics
+    TREND = "[TREND]"  # Trend data
+    DATA = "[DATA]"  # Data metrics
+    RANK = "[RANK]"  # Ranking information
 
     # Deployment
-    CLUST = "[CLUST]"    # Clustered deployment
-    SOLO = "[SOLO]"      # Standalone deployment
+    CLUST = "[CLUST]"  # Clustered deployment
+    SOLO = "[SOLO]"  # Standalone deployment
 
     # Location/Site
-    LOC = "[LOC]"        # Location
-    SITE = "[SITE]"      # Site
+    LOC = "[LOC]"  # Location
+    SITE = "[SITE]"  # Site
 
     # Roles
-    ROLE = "[ROLE]"      # Role designation
-    CFG = "[CFG]"        # Configuration
+    ROLE = "[ROLE]"  # Role designation
+    CFG = "[CFG]"  # Configuration
 
     # Guest
-    GUEST = "[GUEST]"    # Guest network
+    GUEST = "[GUEST]"  # Guest network
 
     # Operations
-    PING = "[PING]"      # Ping operation
-    TRACE = "[TRACE]"    # Traceroute operation
+    PING = "[PING]"  # Ping operation
+    TRACE = "[TRACE]"  # Traceroute operation
 
     # Time
-    TIME = "[TIME]"      # Time-related
+    TIME = "[TIME]"  # Time-related
 
     # Link
-    LINK = "[LINK]"      # Link status
+    LINK = "[LINK]"  # Link status
 
     # List/Details
-    LIST = "[LIST]"      # List marker
+    LIST = "[LIST]"  # List marker
     DETAIL = "[DETAIL]"  # Detail section
 
     # Default/Unknown
-    UNKNOWN = "[--]"     # Unknown or N/A
+    UNKNOWN = "[--]"  # Unknown or N/A
 
 
 # =============================================================================
@@ -191,7 +191,7 @@ def format_bytes(bytes_val: int) -> str:
     Returns:
         Human-readable string with appropriate unit (B, KB, MB, GB, TB, PB)
     """
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
         if bytes_val < 1024.0:
             return f"{bytes_val:.2f} {unit}"
         bytes_val /= 1024.0
@@ -245,6 +245,102 @@ def format_percentage(value: float, threshold_warn: float = 70, threshold_crit: 
 # =============================================================================
 # SUMMARY HELPERS
 # =============================================================================
+
+
+def count_by_field(items: list[dict], field: str) -> dict[str, int]:
+    """
+    Count items by a specific field value.
+
+    Args:
+        items: List of dictionaries to count
+        field: Field name to group by
+
+    Returns:
+        Dictionary mapping field values to counts
+
+    Example:
+        count_by_field([{"status": "UP"}, {"status": "DOWN"}], "status")
+        # Returns: {"UP": 1, "DOWN": 1}
+    """
+    counts: dict[str, int] = {}
+    for item in items:
+        value = str(item.get(field, "Unknown"))
+        counts[value] = counts.get(value, 0) + 1
+    return counts
+
+
+def build_summary_response(
+    title: str,
+    total: int,
+    breakdowns: dict[str, dict[str, int]] | None = None,
+    preview_items: list[dict] | None = None,
+    preview_fields: list[str] | None = None,
+    filter_hints: list[str] | None = None,
+    next_cursor: str | None = None,
+) -> str:
+    """
+    Build a context-efficient summary response.
+
+    Returns a compact summary with stats, preview items, and actionable hints
+    instead of raw JSON, reducing context window usage by ~95%.
+
+    Args:
+        title: Response title (e.g., "Device Inventory")
+        total: Total count of items
+        breakdowns: Stats by category (e.g., {"By Status": {"ONLINE": 100}})
+        preview_items: First few items to show as preview
+        preview_fields: Fields to include in preview (default: first 3 fields)
+        filter_hints: Suggested filters for the user
+        next_cursor: Pagination cursor if more results available
+
+    Returns:
+        Formatted summary string
+
+    Example:
+        build_summary_response(
+            title="Device Inventory",
+            total=8642,
+            breakdowns={"By Status": {"ONLINE": 7609, "OFFLINE": 1033}},
+            filter_hints=["status eq OFFLINE"]
+        )
+    """
+    lines = [f"**{title}** | Total: {total:,}"]
+
+    # Add breakdowns
+    if breakdowns:
+        lines.append("")
+        for category, counts in breakdowns.items():
+            # Sort by count descending, format as compact line
+            sorted_counts = sorted(counts.items(), key=lambda x: -x[1])
+            parts = [f"{k}: {v:,}" for k, v in sorted_counts[:5]]  # Top 5
+            if len(sorted_counts) > 5:
+                parts.append(f"+{len(sorted_counts) - 5} more")
+            lines.append(f"**{category}:** {' | '.join(parts)}")
+
+    # Add preview items
+    if preview_items:
+        lines.append("")
+        lines.append(f"**Preview** (showing {len(preview_items)} of {total:,}):")
+        for i, item in enumerate(preview_items[:5], 1):
+            # Use specified fields or first 3 fields
+            fields = preview_fields or list(item.keys())[:3]
+            parts = [f"{k}={item.get(k, 'N/A')}" for k in fields if k in item]
+            lines.append(f"  {i}. {' | '.join(parts)}")
+
+    # Add filter hints
+    if filter_hints:
+        lines.append("")
+        lines.append(f"{StatusLabels.INFO} Filter hints: " + ", ".join(filter_hints))
+
+    # Add pagination notice
+    if next_cursor:
+        lines.append(f"{StatusLabels.MORE} More results available (next={next_cursor})")
+
+    # Add verbose hint
+    lines.append("")
+    lines.append(f"{StatusLabels.INFO} Add verbose=true for full JSON output")
+
+    return "\n".join(lines)
 
 
 def safe_get(data: dict[str, Any], key: str, default: Any = "Unknown") -> Any:
@@ -324,3 +420,54 @@ def build_error_response(error: str, tool_name: str = "tool") -> list[TextConten
     """
     logger.error(f"Error in {tool_name}: {error}")
     return [TextContent(type="text", text=f"[ERROR] {tool_name} failed: {error}")]
+
+
+# =============================================================================
+# ERROR HANDLING DECORATOR
+# =============================================================================
+
+
+def handle_tool_errors(tool_name: str):
+    """
+    Decorator for consistent error handling in tool handlers.
+
+    Wraps async tool handlers to catch common exceptions and return
+    user-friendly error responses.
+
+    Args:
+        tool_name: Name of the tool for error reporting
+
+    Returns:
+        Decorated function
+
+    Example:
+        @handle_tool_errors("get_device_list")
+        async def handle_get_device_list(args):
+            ...
+    """
+    import functools
+
+    import httpx
+
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            try:
+                return await func(*args, **kwargs)
+            except httpx.HTTPStatusError as e:
+                status = e.response.status_code
+                if status == 404:
+                    return [TextContent(type="text", text=f"{StatusLabels.ERR} {tool_name}: Resource not found")]
+                if status == 401:
+                    return [TextContent(type="text", text=f"{StatusLabels.ERR} {tool_name}: Authentication failed")]
+                if status == 403:
+                    return [TextContent(type="text", text=f"{StatusLabels.ERR} {tool_name}: Access denied")]
+                return build_error_response(f"HTTP {status}: {e.response.text[:200]}", tool_name)
+            except httpx.TimeoutException:
+                return [TextContent(type="text", text=f"{StatusLabels.ERR} {tool_name}: Request timed out")]
+            except Exception as e:
+                return build_error_response(str(e), tool_name)
+
+        return wrapper
+
+    return decorator

@@ -2,7 +2,6 @@
 List Gateway Tunnels - MCP tools for gateway tunnel listing in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
@@ -10,13 +9,10 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import format_json
 
 logger = logging.getLogger("aruba-noc-server")
 
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_list_gateway_tunnels(args: dict[str, Any]) -> list[TextContent]:
     """Tool 21: List Gateway Tunnels - /network-monitoring/v1alpha1/clusters/{cluster-name}/tunnels"""
@@ -24,10 +20,7 @@ async def handle_list_gateway_tunnels(args: dict[str, Any]) -> list[TextContent]
     # Step 1: Validate required parameter
     cluster_name = args.get("cluster_name")
     if not cluster_name:
-        return [TextContent(
-            type="text",
-            text="[ERR] Parameter 'cluster_name' is required. Provide the cluster name."
-        )]
+        return [TextContent(type="text", text="[ERR] Parameter 'cluster_name' is required. Provide the cluster name.")]
 
     # Step 2: Build query parameters
     params = {}
@@ -35,16 +28,12 @@ async def handle_list_gateway_tunnels(args: dict[str, Any]) -> list[TextContent]
 
     # Step 3: Call Aruba API
     try:
-        data = await call_aruba_api(
-            f"/network-monitoring/v1alpha1/clusters/{cluster_name}/tunnels",
-            params=params
-        )
+        data = await call_aruba_api(f"/network-monitoring/v1alpha1/clusters/{cluster_name}/tunnels", params=params)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return [TextContent(
-                type="text",
-                text=f"[ERR] Cluster '{cluster_name}' not found. Verify the cluster name."
-            )]
+            return [
+                TextContent(type="text", text=f"[ERR] Cluster '{cluster_name}' not found. Verify the cluster name.")
+            ]
         raise
 
     # Step 4: Extract tunnel data
@@ -122,7 +111,4 @@ async def handle_list_gateway_tunnels(args: dict[str, Any]) -> list[TextContent]
         summary += f"\n[WARN] {down_count}/{total} tunnels need attention\n"
 
     # Step 6: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]

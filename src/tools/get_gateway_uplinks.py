@@ -2,7 +2,6 @@
 Get Gateway Uplinks - MCP tools for gateway uplinks information in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
@@ -10,14 +9,10 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_bytes
+from src.tools.base import format_bytes, format_json
 
 logger = logging.getLogger("aruba-noc-server")
 
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_gateway_uplinks(args: dict[str, Any]) -> list[TextContent]:
     """Tool 22: Get Gateway Uplinks - /network-monitoring/v1alpha1/gateways/{serial}/uplinks"""
@@ -25,22 +20,20 @@ async def handle_get_gateway_uplinks(args: dict[str, Any]) -> list[TextContent]:
     # Step 1: Validate required parameter
     serial = args.get("serial")
     if not serial:
-        return [TextContent(
-            type="text",
-            text="[ERR] Parameter 'serial' is required. Provide the gateway serial number."
-        )]
+        return [
+            TextContent(type="text", text="[ERR] Parameter 'serial' is required. Provide the gateway serial number.")
+        ]
 
     # Step 2: Call Aruba API
     try:
-        data = await call_aruba_api(
-            f"/network-monitoring/v1alpha1/gateways/{serial}/uplinks"
-        )
+        data = await call_aruba_api(f"/network-monitoring/v1alpha1/gateways/{serial}/uplinks")
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return [TextContent(
-                type="text",
-                text=f"[ERR] Gateway with serial '{serial}' not found. Verify the serial number."
-            )]
+            return [
+                TextContent(
+                    type="text", text=f"[ERR] Gateway with serial '{serial}' not found. Verify the serial number."
+                )
+            ]
         raise
 
     # Step 3: Extract uplink data
@@ -48,10 +41,7 @@ async def handle_get_gateway_uplinks(args: dict[str, Any]) -> list[TextContent]:
     gateway_name = data.get("gatewayName", serial)
 
     if not uplinks:
-        return [TextContent(
-            type="text",
-            text=f"[WARN] No uplink information available for {gateway_name}"
-        )]
+        return [TextContent(type="text", text=f"[WARN] No uplink information available for {gateway_name}")]
 
     # Step 4: Analyze uplinks
     up_count = sum(1 for u in uplinks if u.get("status") == "UP")
@@ -80,12 +70,9 @@ async def handle_get_gateway_uplinks(args: dict[str, Any]) -> list[TextContent]:
         primary_badge = "[PRIMARY]" if is_primary else ""
 
         # Type label
-        type_label = {
-            "ETHERNET": "[WIRED]",
-            "CELLULAR": "[LTE]",
-            "DSL": "[DSL]",
-            "FIBER": "[FIBER]"
-        }.get(uplink_type, "[NET]")
+        type_label = {"ETHERNET": "[WIRED]", "CELLULAR": "[LTE]", "DSL": "[DSL]", "FIBER": "[FIBER]"}.get(
+            uplink_type, "[NET]"
+        )
 
         summary += f"\n{status_label} {interface} {primary_badge}\n"
         summary += f"  {type_label} Type: {uplink_type} | Status: {status}\n"
@@ -133,7 +120,4 @@ async def handle_get_gateway_uplinks(args: dict[str, Any]) -> list[TextContent]:
             summary += "  [WARN] Only one uplink active - no failover available\n"
 
     # Step 6: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
