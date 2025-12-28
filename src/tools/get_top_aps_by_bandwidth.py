@@ -2,21 +2,16 @@
 Get Top APs by Bandwidth - MCP tools for top access points bandwidth analysis in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_bytes
+from src.tools.base import format_bytes, VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
-
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_top_aps_by_bandwidth(args: dict[str, Any]) -> list[TextContent]:
     """Tool 13: Get Top APs by Bandwidth - /network-monitoring/v1alpha1/top-aps-by-wireless-usage"""
@@ -43,10 +38,19 @@ async def handle_get_top_aps_by_bandwidth(args: dict[str, Any]) -> list[TextCont
     total_bandwidth = sum(ap.get("totalBytes", 0) for ap in top_aps)
     total_clients = sum(ap.get("clientCount", 0) for ap in top_aps)
 
-    # Step 4: Create ranked summary
-    summary = f"[STATS] Top {len(top_aps)} APs by Bandwidth Usage ({time_range})\n"
-    summary += f"\n[TREND] Total: {format_bytes(total_bandwidth)} | [CLI] {total_clients} clients\n"
-    summary += "\n[RANK] Rankings:\n"
+    # Step 4: Create ranked summary with verification guardrails
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total APs": f"{len(top_aps)} APs",
+        "Total bandwidth": format_bytes(total_bandwidth),
+        "Total clients": f"{total_clients} clients",
+    }))
+    
+    summary_parts.append(f"\n[STATS] Top {len(top_aps)} APs by Bandwidth Usage ({time_range})")
+    summary_parts.append(f"\n[TREND] Total: {format_bytes(total_bandwidth)} | [CLI] {total_clients} clients")
+    summary_parts.append("\n[RANK] Rankings:")
 
     for idx, ap in enumerate(top_aps[:10], 1):
         ap_name = ap.get("apName", "Unknown")
@@ -60,19 +64,31 @@ async def handle_get_top_aps_by_bandwidth(args: dict[str, Any]) -> list[TextCont
         # Rank labels for top 3
         rank_label = {1: "#1", 2: "#2", 3: "#3"}.get(idx, f"#{idx}")
 
-        summary += f"\n{rank_label} {ap_name} ({serial})\n"
-        summary += f"    [DATA] Total: {format_bytes(total_bytes)}\n"
-        summary += f"    [DN] Down: {format_bytes(download_bytes)} | [UP] Up: {format_bytes(upload_bytes)}\n"
-        summary += f"    [CLI] Clients: {clients} | [UTIL] Utilization: {utilization}%\n"
+        summary_parts.append(f"\n{rank_label} {ap_name} ({serial})")
+        summary_parts.append(f"    [DATA] Total: {format_bytes(total_bytes)}")
+        summary_parts.append(f"    [DN] Down: {format_bytes(download_bytes)} | [UP] Up: {format_bytes(upload_bytes)}")
+        summary_parts.append(f"    [CLI] Clients: {clients} clients | [UTIL] Utilization: {utilization}%")
 
         # Warnings
         if utilization > 80:
-            summary += "    [WARN] High utilization - consider capacity upgrade\n"
+            summary_parts.append("    [WARN] High utilization - consider capacity upgrade")
         if clients > 50:
-            summary += "    [WARN] High client count - may need load balancing\n"
+            summary_parts.append("    [WARN] High client count - may need load balancing")
 
-    # Step 5: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total APs": len(top_aps),
+        "Total bandwidth": format_bytes(total_bandwidth),
+        "Total clients": total_clients,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 5: Store facts and return summary (NO raw JSON)
+    store_facts("get_top_aps_by_bandwidth", {
+        "Total APs": len(top_aps),
+        "Total bandwidth": format_bytes(total_bandwidth),
+        "Total clients": total_clients,
+    })
+    
+    return [TextContent(type="text", text=summary)]

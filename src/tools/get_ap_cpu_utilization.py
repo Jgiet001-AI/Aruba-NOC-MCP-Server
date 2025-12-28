@@ -9,7 +9,8 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_json
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -61,23 +62,32 @@ async def handle_get_ap_cpu_utilization(args: dict[str, Any]) -> list[TextConten
         avg_cpu = max_cpu = min_cpu = current_cpu = 0
         peak_time = "No data"
 
-    # Step 5: Create performance summary
-    summary = f"[CPU] CPU Utilization: {ap_name}\n"
-    summary += f"\n[STATS] Current: {current_cpu}%\n"
-    summary += f"\n[TREND] Statistics ({len(trends)} data points @ {interval}):\n"
-    summary += f"  * [PEAK] Peak: {max_cpu}% @ {peak_time}\n"
-    summary += f"  * [LOW] Minimum: {min_cpu}%\n"
-    summary += f"  * [AVG] Average: {avg_cpu:.1f}%\n"
+    # Step 5: Create performance summary with verification guardrails
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Current CPU": f"{current_cpu}%",
+        "Average CPU": f"{avg_cpu:.1f}%",
+        "Peak CPU": f"{max_cpu}%",
+    }))
+    
+    summary_parts.append(f"\n[CPU] CPU Utilization: {ap_name}")
+    summary_parts.append(f"\n[STATS] Current: {current_cpu}%")
+    summary_parts.append(f"\n[TREND] Statistics ({len(trends)} data points @ {interval}):")
+    summary_parts.append(f"  * [PEAK] Peak: {max_cpu}% @ {peak_time}")
+    summary_parts.append(f"  * [LOW] Minimum: {min_cpu}%")
+    summary_parts.append(f"  * [AVG] Average: {avg_cpu:.1f}%")
 
     # Performance health indicators
     if max_cpu >= 90:
-        summary += f"\n[CRIT] CPU usage reached {max_cpu}% - AP is severely overloaded\n"
+        summary_parts.append(f"\n[CRIT] CPU usage reached {max_cpu}% - AP is severely overloaded")
     elif max_cpu >= 80:
-        summary += f"\n[WARN] CPU usage reached {max_cpu}% - AP is under heavy load\n"
+        summary_parts.append(f"\n[WARN] CPU usage reached {max_cpu}% - AP is under heavy load")
     elif avg_cpu >= 70:
-        summary += f"\n[WARN] Average CPU at {avg_cpu:.1f}% - monitor for performance issues\n"
+        summary_parts.append(f"\n[WARN] Average CPU at {avg_cpu:.1f}% - monitor for performance issues")
     else:
-        summary += "\n[OK] Healthy: CPU utilization is normal\n"
+        summary_parts.append("\n[OK] Healthy: CPU utilization is normal")
 
     # Trend analysis
     if len(cpu_values) >= 5:
@@ -85,13 +95,29 @@ async def handle_get_ap_cpu_utilization(args: dict[str, Any]) -> list[TextConten
         older_avg = sum(cpu_values[:5]) / 5
 
         if recent_avg > older_avg * 1.2:
-            summary += "[TREND] Increasing - CPU load is rising\n"
+            summary_parts.append("[TREND] Increasing - CPU load is rising")
         elif recent_avg < older_avg * 0.8:
-            summary += "[TREND] Decreasing - CPU load is dropping\n"
+            summary_parts.append("[TREND] Decreasing - CPU load is dropping")
 
     # Recommendations
     if max_cpu >= 80:
-        summary += "\n[INFO] Recommendation: Consider reducing client load or upgrading AP hardware\n"
+        summary_parts.append("\n[INFO] Recommendation: Consider reducing client load or upgrading AP hardware")
 
-    # Step 6: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Current CPU": f"{current_cpu}%",
+        "Average CPU": f"{avg_cpu:.1f}%",
+        "Peak CPU": f"{max_cpu}%",
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 6: Store facts and return summary (NO raw JSON)
+    store_facts("get_ap_cpu_utilization", {
+        "AP": ap_name,
+        "Current CPU": f"{current_cpu}%",
+        "Average CPU": f"{avg_cpu:.1f}%",
+        "Peak CPU": f"{max_cpu}%",
+    })
+    
+    return [TextContent(type="text", text=summary)]

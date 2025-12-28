@@ -9,7 +9,8 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_json
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -55,22 +56,31 @@ async def handle_list_gateway_tunnels(args: dict[str, Any]) -> list[TextContent]
         if status == "DOWN":
             down_tunnels.append(tunnel.get("tunnelName", "Unknown"))
 
-    # Step 5: Create tunnel summary
+    # Step 5: Create tunnel summary with verification guardrails
     up_count = by_status.get("UP", 0)
     down_count = by_status.get("DOWN", 0)
 
-    summary = f"[VPN] VPN Tunnels: {cluster_name}\n"
-    summary += f"\n[STATS] Total: {total} tunnels | [UP] {up_count} up | [DN] {down_count} down\n"
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total tunnels": f"{total} tunnels",
+        "Tunnels UP": f"{up_count} tunnels",
+        "Tunnels DOWN": f"{down_count} tunnels",
+    }))
+    
+    summary_parts.append(f"\n[VPN] VPN Tunnels: {cluster_name}")
+    summary_parts.append(f"\n[STATS] Total: {total} tunnels | [UP] {up_count} up | [DN] {down_count} down")
 
     if by_type:
-        summary += "\n[TYPE] Tunnel Types:\n"
+        summary_parts.append("\n[TYPE] Tunnel Types:")
         for ttype, count in sorted(by_type.items(), key=lambda x: x[1], reverse=True):
-            summary += f"  * {ttype}: {count}\n"
+            summary_parts.append(f"  * {ttype}: {count} tunnels")
 
     if down_tunnels:
-        summary += f"\n[WARN] Tunnels DOWN ({len(down_tunnels)}): {', '.join(down_tunnels)}\n"
+        summary_parts.append(f"\n[WARN] Tunnels DOWN ({len(down_tunnels)}): {', '.join(down_tunnels)}")
 
-    summary += "\n[LIST] Tunnel Details:\n"
+    summary_parts.append("\n[LIST] Tunnel Details:")
 
     for tunnel in tunnels:
         tunnel_name = tunnel.get("tunnelName", "Unknown")
@@ -86,29 +96,45 @@ async def handle_list_gateway_tunnels(args: dict[str, Any]) -> list[TextContent]
         status_label = "[UP]" if status == "UP" else "[DN]"
         type_label = "[IPSEC]" if tunnel_type == "IPsec" else "[VPN]"
 
-        summary += f"\n{status_label} {tunnel_name}\n"
-        summary += f"  {type_label} Type: {tunnel_type} | [ENC] {encryption}\n"
-        summary += f"  [NET] {local_endpoint} <-> {remote_endpoint}\n"
-        summary += f"  [DATA] Throughput: {throughput_mbps} Mbps\n"
-        summary += f"  [PKT] TX: {tx_packets:,} | RX: {rx_packets:,} packets\n"
+        summary_parts.append(f"\n{status_label} {tunnel_name}")
+        summary_parts.append(f"  {type_label} Type: {tunnel_type} | [ENC] {encryption}")
+        summary_parts.append(f"  [NET] {local_endpoint} <-> {remote_endpoint}")
+        summary_parts.append(f"  [DATA] Throughput: {throughput_mbps} Mbps")
+        summary_parts.append(f"  [PKT] TX: {tx_packets:,} | RX: {rx_packets:,} packets")
 
         # Tunnel health warnings
         if status == "DOWN":
-            summary += "  [CRIT] Tunnel is down - connectivity lost\n"
+            summary_parts.append("  [CRIT] Tunnel is down - connectivity lost")
         elif throughput_mbps == 0 and status == "UP":
-            summary += "  [WARN] No traffic - tunnel may be idle or broken\n"
+            summary_parts.append("  [WARN] No traffic - tunnel may be idle or broken")
 
         # Encryption warnings
         if encryption in ["DES", "3DES", "None"]:
-            summary += "  [WARN] Weak or no encryption - security risk\n"
+            summary_parts.append("  [WARN] Weak or no encryption - security risk")
 
     # Overall health assessment
     if down_count == 0:
-        summary += "\n[OK] All tunnels operational\n"
+        summary_parts.append("\n[OK] All tunnels operational")
     elif down_count == total:
-        summary += "\n[CRIT] All tunnels are down!\n"
+        summary_parts.append("\n[CRIT] All tunnels are down!")
     else:
-        summary += f"\n[WARN] {down_count}/{total} tunnels need attention\n"
+        summary_parts.append(f"\n[WARN] {down_count}/{total} tunnels need attention")
 
-    # Step 6: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total tunnels": total,
+        "Tunnels UP": up_count,
+        "Tunnels DOWN": down_count,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 6: Store facts and return summary (NO raw JSON)
+    store_facts("list_gateway_tunnels", {
+        "Cluster": cluster_name,
+        "Total tunnels": total,
+        "Tunnels UP": up_count,
+        "Tunnels DOWN": down_count,
+    })
+    
+    return [TextContent(type="text", text=summary)]

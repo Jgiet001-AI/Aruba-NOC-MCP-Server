@@ -9,7 +9,8 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_json
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -63,35 +64,44 @@ async def handle_get_stack_members(args: dict[str, Any]) -> list[TextContent]:
         else:
             regular_members.append(member)
 
-    # Step 5: Create stack topology summary
-    summary = "[STACK] Switch Stack Topology\n"
-    summary += f"\n[NAME] Stack: {stack_name}\n"
-    summary += f"[STATUS] Status: {stack_status}\n"
-    summary += f"\n[MEMBERS] Members: {total_members} total ({up_members} UP, {down_members} DOWN)\n"
+    # Step 5: Create stack topology summary with verification guardrails
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total members": f"{total_members} members",
+        "Members UP": f"{up_members} members",
+        "Members DOWN": f"{down_members} members",
+    }))
+    
+    summary_parts.append("\n[STACK] Switch Stack Topology")
+    summary_parts.append(f"\n[NAME] Stack: {stack_name}")
+    summary_parts.append(f"[STATUS] Status: {stack_status}")
+    summary_parts.append(f"\n[MEMBERS] Members: {total_members} total ({up_members} UP, {down_members} DOWN)")
 
     # Commander details
     if commander:
-        summary += "\n[PRIMARY] Commander:\n"
-        summary += f"  [POS] Position: {commander.get('stackPosition', 'N/A')}\n"
-        summary += f"  [NAME] Name: {commander.get('deviceName', 'N/A')}\n"
-        summary += f"  [SERIAL] Serial: {commander.get('serialNumber', 'N/A')}\n"
-        summary += f"  [MODEL] Model: {commander.get('model', 'N/A')}\n"
-        summary += f"  [FW] Version: {commander.get('swVersion', 'N/A')}\n"
-        summary += f"  [UP] Status: {commander.get('status', 'N/A')}\n"
+        summary_parts.append("\n[PRIMARY] Commander:")
+        summary_parts.append(f"  [POS] Position: {commander.get('stackPosition', 'N/A')}")
+        summary_parts.append(f"  [NAME] Name: {commander.get('deviceName', 'N/A')}")
+        summary_parts.append(f"  [SERIAL] Serial: {commander.get('serialNumber', 'N/A')}")
+        summary_parts.append(f"  [MODEL] Model: {commander.get('model', 'N/A')}")
+        summary_parts.append(f"  [FW] Version: {commander.get('swVersion', 'N/A')}")
+        summary_parts.append(f"  [UP] Status: {commander.get('status', 'N/A')}")
 
     # Standby details
     if standby:
-        summary += "\n[STANDBY] Standby:\n"
-        summary += f"  [POS] Position: {standby.get('stackPosition', 'N/A')}\n"
-        summary += f"  [NAME] Name: {standby.get('deviceName', 'N/A')}\n"
-        summary += f"  [SERIAL] Serial: {standby.get('serialNumber', 'N/A')}\n"
-        summary += f"  [MODEL] Model: {standby.get('model', 'N/A')}\n"
-        summary += f"  [FW] Version: {standby.get('swVersion', 'N/A')}\n"
-        summary += f"  [UP] Status: {standby.get('status', 'N/A')}\n"
+        summary_parts.append("\n[STANDBY] Standby:")
+        summary_parts.append(f"  [POS] Position: {standby.get('stackPosition', 'N/A')}")
+        summary_parts.append(f"  [NAME] Name: {standby.get('deviceName', 'N/A')}")
+        summary_parts.append(f"  [SERIAL] Serial: {standby.get('serialNumber', 'N/A')}")
+        summary_parts.append(f"  [MODEL] Model: {standby.get('model', 'N/A')}")
+        summary_parts.append(f"  [FW] Version: {standby.get('swVersion', 'N/A')}")
+        summary_parts.append(f"  [UP] Status: {standby.get('status', 'N/A')}")
 
     # Regular members
     if regular_members:
-        summary += f"\n[MEMBER] Members ({len(regular_members)}):\n"
+        summary_parts.append(f"\n[MEMBER] Members ({len(regular_members)}):")
         for member in regular_members:
             pos = member.get("stackPosition", "?")
             name = member.get("deviceName", "Unknown")
@@ -100,29 +110,45 @@ async def handle_get_stack_members(args: dict[str, Any]) -> list[TextContent]:
 
             status_label = "[UP]" if status == "UP" else "[DN]"
 
-            summary += f"  {status_label} Pos {pos}: {name} ({model}) - {status}\n"
+            summary_parts.append(f"  {status_label} Pos {pos}: {name} ({model}) - {status}")
 
     # Health assessment
-    summary += "\n[HEALTH] Stack Health:\n"
+    summary_parts.append("\n[HEALTH] Stack Health:")
 
     if down_members == 0:
-        summary += "  [OK] All members operational\n"
+        summary_parts.append("  [OK] All members operational")
     else:
-        summary += f"  [WARN] {down_members} member(s) DOWN - degraded stack\n"
+        summary_parts.append(f"  [WARN] {down_members} member(s) DOWN - degraded stack")
 
     if not commander:
-        summary += "  [CRIT] No commander detected - stack election issue!\n"
+        summary_parts.append("  [CRIT] No commander detected - stack election issue!")
 
     if not standby and total_members > 1:
-        summary += "  [WARN] No standby configured - no redundancy\n"
+        summary_parts.append("  [WARN] No standby configured - no redundancy")
 
     # Version consistency check
     versions = {member.get("swVersion", "N/A") for member in members}
     if len(versions) > 1:
-        summary += "  [WARN] Mixed software versions detected - recommend upgrade\n"
-        summary += f"     Versions: {', '.join(versions)}\n"
+        summary_parts.append("  [WARN] Mixed software versions detected - recommend upgrade")
+        summary_parts.append(f"     Versions: {', '.join(versions)}")
     else:
-        summary += "  [OK] Consistent software version across stack\n"
+        summary_parts.append("  [OK] Consistent software version across stack")
 
-    # Step 6: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total members": total_members,
+        "Members UP": up_members,
+        "Members DOWN": down_members,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 6: Store facts and return summary (NO raw JSON)
+    store_facts("get_stack_members", {
+        "Stack": stack_name,
+        "Total members": total_members,
+        "Members UP": up_members,
+        "Members DOWN": down_members,
+    })
+    
+    return [TextContent(type="text", text=summary)]

@@ -9,7 +9,8 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_bytes, format_json
+from src.tools.base import format_bytes, VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -48,9 +49,18 @@ async def handle_get_gateway_uplinks(args: dict[str, Any]) -> list[TextContent]:
     down_count = len(uplinks) - up_count
     primary_uplink = next((u for u in uplinks if u.get("isPrimary", False)), None)
 
-    # Step 5: Create uplink summary
-    summary = f"[NET] WAN Uplinks: {gateway_name}\n"
-    summary += f"\n[STATS] Total: {len(uplinks)} uplinks | [UP] {up_count} up | [DN] {down_count} down\n"
+    # Step 5: Create uplink summary with verification guardrails
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total uplinks": f"{len(uplinks)} uplinks",
+        "Uplinks UP": f"{up_count} uplinks",
+        "Uplinks DOWN": f"{down_count} uplinks",
+    }))
+    
+    summary_parts.append(f"\n[NET] WAN Uplinks: {gateway_name}")
+    summary_parts.append(f"\n[STATS] Total: {len(uplinks)} uplinks | [UP] {up_count} up | [DN] {down_count} down")
 
     for idx, uplink in enumerate(uplinks, 1):
         interface = uplink.get("interfaceName", f"uplink-{idx}")
@@ -74,50 +84,66 @@ async def handle_get_gateway_uplinks(args: dict[str, Any]) -> list[TextContent]:
             uplink_type, "[NET]"
         )
 
-        summary += f"\n{status_label} {interface} {primary_badge}\n"
-        summary += f"  {type_label} Type: {uplink_type} | Status: {status}\n"
-        summary += f"  [NET] IP: {ip_address} | Gateway: {gateway_ip}\n"
-        summary += f"  [TREND] Throughput: {throughput_mbps} Mbps\n"
-        summary += f"  [DATA] TX: {format_bytes(tx_bytes)} | RX: {format_bytes(rx_bytes)}\n"
+        summary_parts.append(f"\n{status_label} {interface} {primary_badge}")
+        summary_parts.append(f"  {type_label} Type: {uplink_type} | Status: {status}")
+        summary_parts.append(f"  [NET] IP: {ip_address} | Gateway: {gateway_ip}")
+        summary_parts.append(f"  [TREND] Throughput: {throughput_mbps} Mbps")
+        summary_parts.append(f"  [DATA] TX: {format_bytes(tx_bytes)} | RX: {format_bytes(rx_bytes)}")
 
         # Error analysis
         if tx_errors > 0 or rx_errors > 0:
-            summary += f"  [WARN] Errors - TX: {tx_errors:,} | RX: {rx_errors:,}\n"
+            summary_parts.append(f"  [WARN] Errors - TX: {tx_errors:,} | RX: {rx_errors:,}")
 
             error_rate_tx = (tx_errors / max(tx_bytes, 1)) * 100 if tx_bytes > 0 else 0
             error_rate_rx = (rx_errors / max(rx_bytes, 1)) * 100 if rx_bytes > 0 else 0
 
             if error_rate_tx > 1 or error_rate_rx > 1:
-                summary += "  [CRIT] High error rate - link quality issues\n"
+                summary_parts.append("  [CRIT] High error rate - link quality issues")
 
         # Status-specific warnings
         if status == "DOWN":
             if is_primary:
-                summary += "  [CRIT] Primary uplink is down!\n"
+                summary_parts.append("  [CRIT] Primary uplink is down!")
             else:
-                summary += "  [WARN] Backup uplink unavailable\n"
+                summary_parts.append("  [WARN] Backup uplink unavailable")
         elif status == "UP" and throughput_mbps == 0:
-            summary += "  [WARN] No traffic - uplink may be idle\n"
+            summary_parts.append("  [WARN] No traffic - uplink may be idle")
 
     # Overall health assessment
-    summary += "\n[STATS] Health Assessment:\n"
+    summary_parts.append("\n[STATS] Health Assessment:")
 
     if up_count == 0:
-        summary += "  [CRIT] All uplinks are down - no WAN connectivity!\n"
+        summary_parts.append("  [CRIT] All uplinks are down - no WAN connectivity!")
     elif primary_uplink and primary_uplink.get("status") != "UP":
-        summary += "  [WARN] Primary uplink down - using backup path\n"
+        summary_parts.append("  [WARN] Primary uplink down - using backup path")
     elif up_count == len(uplinks):
-        summary += "  [OK] All uplinks operational - full redundancy available\n"
+        summary_parts.append("  [OK] All uplinks operational - full redundancy available")
     else:
-        summary += f"  [WARN] Partial connectivity - {down_count} uplink(s) need attention\n"
+        summary_parts.append(f"  [WARN] Partial connectivity - {down_count} uplink(s) need attention")
 
     # Multi-WAN recommendations
     if len(uplinks) > 1:
-        summary += "\n[INFO] Multi-WAN Status:\n"
+        summary_parts.append("\n[INFO] Multi-WAN Status:")
         if up_count >= 2:
-            summary += "  [OK] Multiple active paths - load balancing/failover ready\n"
+            summary_parts.append("  [OK] Multiple active paths - load balancing/failover ready")
         elif up_count == 1:
-            summary += "  [WARN] Only one uplink active - no failover available\n"
+            summary_parts.append("  [WARN] Only one uplink active - no failover available")
 
-    # Step 6: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total uplinks": len(uplinks),
+        "Uplinks UP": up_count,
+        "Uplinks DOWN": down_count,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 6: Store facts and return summary (NO raw JSON)
+    store_facts("get_gateway_uplinks", {
+        "Gateway": gateway_name,
+        "Total uplinks": len(uplinks),
+        "Uplinks UP": up_count,
+        "Uplinks DOWN": down_count,
+    })
+    
+    return [TextContent(type="text", text=summary)]

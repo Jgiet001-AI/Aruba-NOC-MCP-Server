@@ -7,13 +7,15 @@ Provides centralized helpers for consistent output formatting across all tools:
 - format_json: JSON serialization helper
 - extract_params: Parameter transformation for API calls
 - Response builders: Consistent tool response formatting
+- validate_input: Pydantic v2 input validation helper
 """
 
 import json
 import logging
-from typing import Any
+from typing import Any, TypeVar
 
 from mcp.types import TextContent
+from pydantic import BaseModel, ValidationError
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -106,6 +108,165 @@ class StatusLabels:
 
     # Default/Unknown
     UNKNOWN = "[--]"  # Unknown or N/A
+
+
+# =============================================================================
+# INPUT VALIDATION - Pydantic v2 helpers
+# =============================================================================
+
+# Type variable for Pydantic models
+T = TypeVar("T", bound=BaseModel)
+
+
+def validate_input(
+    model: type[T],
+    args: dict[str, Any],
+    tool_name: str,
+) -> T | list[TextContent]:
+    """
+    Validate tool input using a Pydantic model.
+
+    Returns the validated model instance on success, or a TextContent
+    error response on validation failure.
+
+    Args:
+        model: Pydantic model class to validate against
+        args: Raw arguments dictionary from MCP
+        tool_name: Name of the tool for error messages
+
+    Returns:
+        - Validated model instance (T) on success
+        - list[TextContent] with error message on failure
+
+    Example:
+        validated = validate_input(GetAPDetailsInput, args, "get_ap_details")
+        if isinstance(validated, list):
+            return validated  # Validation error
+        serial = validated.serial_number  # Type-safe access
+    """
+    try:
+        return model.model_validate(args)
+    except ValidationError as e:
+        # Format user-friendly error messages
+        errors = []
+        for err in e.errors():
+            loc = ".".join(str(x) for x in err["loc"]) if err["loc"] else "input"
+            msg = err["msg"]
+            errors.append(f"{loc}: {msg}")
+
+        error_text = "; ".join(errors)
+        return [
+            TextContent(
+                type="text",
+                text=f"{StatusLabels.ERR} {tool_name} validation failed: {error_text}",
+            )
+        ]
+
+
+# =============================================================================
+# VERIFICATION GUARDRAILS - Anti-Hallucination Helpers
+# =============================================================================
+
+
+class VerificationGuards:
+    """
+    Anti-hallucination guardrails for LLM-friendly output formatting.
+
+    These helpers ensure the LLM cannot confuse different metrics by:
+    1. Explicit labeling of metric types (counts vs percentages vs scores)
+    2. Verification checkpoints summarizing key facts
+    3. Warning blocks for commonly confused metrics
+    """
+
+    SEPARATOR = "=" * 50
+
+    @staticmethod
+    def checkpoint(facts: dict[str, Any]) -> str:
+        """
+        Create a verification checkpoint with key facts.
+
+        The LLM should reference these facts before making claims.
+
+        Args:
+            facts: Dictionary of fact_name -> fact_value pairs
+
+        Returns:
+            Formatted verification checkpoint block
+        """
+        lines = [
+            VerificationGuards.SEPARATOR,
+            "[VERIFICATION CHECKPOINT - Cite these facts exactly]",
+        ]
+        for name, value in facts.items():
+            lines.append(f"  {name}: {value}")
+        lines.append(VerificationGuards.SEPARATOR)
+        return "\n".join(lines)
+
+    @staticmethod
+    def device_counts(total: int, online: int, offline: int) -> str:
+        """
+        Format device counts with explicit labels.
+
+        Prevents confusion between device counts and health scores.
+        """
+        online_pct = (online / total * 100) if total > 0 else 0
+        offline_pct = (offline / total * 100) if total > 0 else 0
+        return (
+            f"[DEVICE COUNTS - actual devices, not health scores]\n"
+            f"  Total: {total} devices\n"
+            f"  Online: {online} devices ({online_pct:.1f}% of total devices)\n"
+            f"  Offline: {offline} devices ({offline_pct:.1f}% of total devices)"
+        )
+
+    @staticmethod
+    def health_scores(good: float, fair: float, poor: float) -> str:
+        """
+        Format health SCORES with explicit warning.
+
+        Health scores are weighted metrics, NOT device percentages.
+        """
+        return (
+            f"[HEALTH SCORES - weighted metrics, NOT device percentages]\n"
+            f"  Good: {good:.1f}% (health score)\n"
+            f"  Fair: {fair:.1f}% (health score)\n"
+            f"  Poor: {poor:.1f}% (health score)\n"
+            f"  [!] These percentages are health SCORES, not device counts"
+        )
+
+    @staticmethod
+    def anti_hallucination_footer(key_facts: dict[str, Any]) -> str:
+        """
+        Create an anti-hallucination footer with key facts to verify.
+
+        This block reminds the LLM to verify facts before reporting.
+        """
+        lines = [
+            "",
+            VerificationGuards.SEPARATOR,
+            "[!] BEFORE REPORTING, VERIFY THESE FACTS:",
+        ]
+        for name, value in key_facts.items():
+            lines.append(f"    - {name}: {value}")
+        lines.append("    - Health % ≠ Device % (they are different metrics)")
+        lines.append("    - Cite actual numbers from this response, do not calculate")
+        lines.append(VerificationGuards.SEPARATOR)
+        return "\n".join(lines)
+
+    @staticmethod
+    def metric_label(value: Any, metric_type: str, unit: str = "") -> str:
+        """
+        Format a single metric with explicit type label.
+
+        Args:
+            value: The metric value
+            metric_type: Type like 'count', 'percentage', 'score', 'bytes'
+            unit: Optional unit suffix
+
+        Returns:
+            Formatted metric string like "150 [count of devices]"
+        """
+        unit_str = f" {unit}" if unit else ""
+        return f"{value}{unit_str} [{metric_type}]"
 
 
 # =============================================================================

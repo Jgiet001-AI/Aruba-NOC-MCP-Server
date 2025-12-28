@@ -9,7 +9,9 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_json
+from src.tools.base import VerificationGuards, validate_input
+from src.tools.models import GetGatewayDetailsInput
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -17,15 +19,11 @@ logger = logging.getLogger("aruba-noc-server")
 async def handle_get_gateway_details(args: dict[str, Any]) -> list[TextContent]:
     """Tool 11: Get Gateway Details - /network-monitoring/v1alpha1/gateways/{serial-number}"""
 
-    # Step 1: Validate required parameter
-    serial_number = args.get("serial_number")
-    if not serial_number:
-        return [
-            TextContent(
-                type="text",
-                text="[ERR] Parameter 'serial_number' is required. Please provide the gateway serial number.",
-            )
-        ]
+    # Step 1: Validate input with Pydantic
+    validated = validate_input(GetGatewayDetailsInput, args, "get_gateway_details")
+    if isinstance(validated, list):
+        return validated  # Validation error response
+    serial_number = validated.serial_number
 
     # Step 2: Call Aruba API (path parameter)
     # CRITICAL: API uses hyphenated path: gateways/{serial-number}
@@ -69,55 +67,84 @@ async def handle_get_gateway_details(args: dict[str, Any]) -> list[TextContent]:
     download_mbps = throughput.get("downloadMbps", 0)
     upload_mbps = throughput.get("uploadMbps", 0)
 
-    # Step 4: Create detailed summary with professional labels
+    # Step 4: Create detailed summary with verification guardrails
+    summary_parts = []
+
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Gateway Name": device_name,
+        "Serial": serial_number,
+        "Status": status,
+        "Active tunnels": f"{tunnel_count} tunnels",
+        "Uplinks": f"{uplinks_up}/{uplinks_total} up",
+    }))
+
     status_label = "[UP]" if status == "ONLINE" else "[DN]"
 
-    summary = f"[GW] Gateway Details: {device_name}\n"
-    summary += f"\n[STATUS] {status_label} {status}\n"
-    summary += f"[MODEL] {model}\n"
-    summary += f"[SERIAL] {serial_number}\n"
-    summary += f"[FW] Firmware: {firmware}\n"
-    summary += f"[UPTIME] {uptime} seconds\n"
-    summary += f"[LOC] Location: {site_name}\n"
+    summary_parts.append(f"\n[GW] Gateway Details: {device_name}")
+    summary_parts.append(f"\n[STATUS] {status_label} {status}")
+    summary_parts.append(f"[MODEL] {model}")
+    summary_parts.append(f"[SERIAL] {serial_number}")
+    summary_parts.append(f"[FW] Firmware: {firmware}")
+    summary_parts.append(f"[UPTIME] {uptime} seconds")
+    summary_parts.append(f"[LOC] Location: {site_name}")
 
     # Deployment and clustering
-    summary += f"\n[CFG] Deployment: {deployment}\n"
+    summary_parts.append(f"\n[CFG] Deployment: {deployment}")
     if cluster_name:
-        summary += f"[CLUSTER] {cluster_name}\n"
-        summary += f"[ROLE] {cluster_role}\n"
+        summary_parts.append(f"[CLUSTER] {cluster_name}")
+        summary_parts.append(f"[ROLE] {cluster_role}")
 
     # Uplinks
     if uplinks_total > 0:
-        summary += f"\n[LINK] Uplinks: {uplinks_up}/{uplinks_total} up\n"
+        summary_parts.append(f"\n[LINK] Uplinks: {uplinks_up}/{uplinks_total} up")
         for uplink in uplinks:
             uplink_name = uplink.get("name", "Unknown")
             uplink_status = uplink.get("status", "UNKNOWN")
             uplink_label = "[UP]" if uplink_status == "UP" else "[DN]"
-            summary += f"  * {uplink_label} {uplink_name}: {uplink_status}\n"
+            summary_parts.append(f"  * {uplink_label} {uplink_name}: {uplink_status}")
 
     # Tunnels
     if tunnel_count > 0:
-        summary += f"\n[VPN] VPN Tunnels: {tunnel_count} active\n"
+        summary_parts.append(f"\n[VPN] VPN Tunnels: {tunnel_count} active")
     else:
-        summary += "\n[VPN] VPN Tunnels: None active\n"
+        summary_parts.append("\n[VPN] VPN Tunnels: None active")
 
     # Throughput
     if download_mbps or upload_mbps:
-        summary += "\n[TREND] Throughput:\n"
-        summary += f"  * [DN] Download: {download_mbps:.2f} Mbps\n"
-        summary += f"  * [UP] Upload: {upload_mbps:.2f} Mbps\n"
+        summary_parts.append("\n[TREND] Throughput:")
+        summary_parts.append(f"  * [DN] Download: {download_mbps:.2f} Mbps")
+        summary_parts.append(f"  * [UP] Upload: {upload_mbps:.2f} Mbps")
 
     # Performance indicators
     if cpu_util > 80:
-        summary += f"\n[WARN] High CPU: {cpu_util}%\n"
+        summary_parts.append(f"\n[WARN] High CPU: {cpu_util}%")
     if mem_util > 80:
-        summary += f"[WARN] High Memory: {mem_util}%\n"
+        summary_parts.append(f"[WARN] High Memory: {mem_util}%")
 
     # Warnings
     if uplinks_total > 0 and uplinks_up < uplinks_total:
-        summary += f"[WARN] {uplinks_total - uplinks_up} uplink(s) down\n"
+        summary_parts.append(f"[WARN] {uplinks_total - uplinks_up} uplink(s) down")
     if uplinks_up == 0:
-        summary += "[CRIT] All uplinks down - no WAN connectivity\n"
+        summary_parts.append("[CRIT] All uplinks down - no WAN connectivity")
 
-    # Step 5: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Gateway": device_name,
+        "Status": status,
+        "Tunnels": tunnel_count,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 5: Store facts and return summary (NO raw JSON)
+    store_facts("get_gateway_details", {
+        "Gateway Name": device_name,
+        "Serial": serial_number,
+        "Status": status,
+        "Active tunnels": tunnel_count,
+        "Uplinks up": uplinks_up,
+        "Site": site_name,
+    })
+
+    return [TextContent(type="text", text=summary)]

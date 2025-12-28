@@ -2,21 +2,16 @@
 Get Top Clients by Usage - MCP tools for top clients usage analysis in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_bytes
+from src.tools.base import format_bytes, VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
-
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_top_clients_by_usage(args: dict[str, Any]) -> list[TextContent]:
     """Tool 14: Get Top Clients by Usage - /network-monitoring/v1alpha1/clients/usage/topn"""
@@ -44,10 +39,18 @@ async def handle_get_top_clients_by_usage(args: dict[str, Any]) -> list[TextCont
     # Calculate totals
     total_bandwidth = sum(c.get("totalBytes", 0) for c in top_clients)
 
-    # Step 4: Create ranked summary
-    summary = f"[CLI] Top {len(top_clients)} Bandwidth Consumers ({time_range})\n"
-    summary += f"\n[STATS] Combined Usage: {format_bytes(total_bandwidth)}\n"
-    summary += "\n[RANK] Rankings:\n"
+    # Step 4: Create ranked summary with verification guardrails
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Top clients shown": f"{len(top_clients)} clients",
+        "Combined bandwidth": format_bytes(total_bandwidth),
+    }))
+    
+    summary_parts.append(f"\n[CLI] Top {len(top_clients)} Bandwidth Consumers ({time_range})")
+    summary_parts.append(f"\n[STATS] Combined Usage: {format_bytes(total_bandwidth)}")
+    summary_parts.append("\n[RANK] Rankings:")
 
     for idx, client in enumerate(top_clients[:10], 1):
         hostname = client.get("hostname", "Unknown")
@@ -63,18 +66,28 @@ async def handle_get_top_clients_by_usage(args: dict[str, Any]) -> list[TextCont
         rank_label = {1: "#1", 2: "#2", 3: "#3"}.get(idx, f"#{idx}")
         conn_label = "[WIFI]" if connection_type == "WIRELESS" else "[WIRED]"
 
-        summary += f"\n{rank_label} {hostname}\n"
-        summary += f"    {conn_label} {connection_type} | MAC: {mac} | IP: {ip_address}\n"
-        summary += f"    [DATA] Total: {format_bytes(total_bytes)}\n"
-        summary += f"    [DN] Down: {format_bytes(download_bytes)} | [UP] Up: {format_bytes(upload_bytes)}\n"
-        summary += f"    [LOC] Connected to: {connected_device}\n"
+        summary_parts.append(f"\n{rank_label} {hostname}")
+        summary_parts.append(f"    {conn_label} {connection_type} | MAC: {mac} | IP: {ip_address}")
+        summary_parts.append(f"    [DATA] Total: {format_bytes(total_bytes)}")
+        summary_parts.append(f"    [DN] Down: {format_bytes(download_bytes)} | [UP] Up: {format_bytes(upload_bytes)}")
+        summary_parts.append(f"    [LOC] Connected to: {connected_device}")
 
         # Usage warnings
         if total_bytes > 100 * 1024**3:  # > 100 GB
-            summary += "    [WARN] Excessive usage - investigate for policy violations\n"
+            summary_parts.append("    [WARN] Excessive usage - investigate for policy violations")
 
-    # Step 5: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Top clients": len(top_clients),
+        "Combined bandwidth": format_bytes(total_bandwidth),
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 5: Store facts and return summary (NO raw JSON)
+    store_facts("get_top_clients_by_usage", {
+        "Top clients": len(top_clients),
+        "Combined bandwidth": format_bytes(total_bandwidth),
+    })
+    
+    return [TextContent(type="text", text=summary)]

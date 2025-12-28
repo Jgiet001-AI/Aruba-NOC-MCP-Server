@@ -32,6 +32,7 @@ from . import (
     ping_from_gateway,
     sites,
     traceroute_from_ap,
+    verify_facts,
 )
 
 __all__ = [
@@ -66,4 +67,5 @@ __all__ = [
     "ping_from_gateway",
     "sites",
     "traceroute_from_ap",
+    "verify_facts",
 ]

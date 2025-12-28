@@ -9,7 +9,8 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_json
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -49,15 +50,36 @@ async def handle_traceroute_from_ap(args: dict[str, Any]) -> list[TextContent]:
     status = data.get("status", "UNKNOWN")
     ap_name = data.get("apName", serial)
 
-    # Step 5: Create response with polling instructions
-    summary = "[TRACE] Traceroute Test Initiated\n"
-    summary += f"\n[LOC] From: {ap_name} ({serial})\n"
-    summary += f"[TRACE] To: {target}\n"
-    summary += f"[CFG] Max Hops: {payload['maxHops']}\n"
-    summary += f"\n[ASYNC] Status: {status}\n"
-    summary += f"[INFO] Task ID: {task_id}\n"
-    summary += "\n[INFO] This is an async operation. Poll for results using:\n"
-    summary += f"   get_async_test_result(task_id: '{task_id}')\n"
-    summary += "\n[INFO] Traceroute may take 30-60 seconds to complete depending on path length.\n"
+    # Step 5: Create response with verification guardrails
+    summary_parts = []
+    
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Task ID": task_id,
+        "Status": status,
+        "Target": target,
+    }))
+    
+    summary_parts.append("\n[TRACE] Traceroute Test Initiated")
+    summary_parts.append(f"\n[LOC] From: {ap_name} ({serial})")
+    summary_parts.append(f"[TRACE] To: {target}")
+    summary_parts.append(f"[CFG] Max Hops: {payload['maxHops']}")
+    summary_parts.append(f"\n[ASYNC] Status: {status}")
+    summary_parts.append(f"[INFO] Task ID: {task_id}")
+    summary_parts.append("\n[INFO] This is an async operation. Poll for results using:")
+    summary_parts.append(f"   get_async_test_result(task_id: '{task_id}')")
+    summary_parts.append("\n[INFO] Traceroute may take 30-60 seconds to complete depending on path length.")
+    
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Task ID": task_id,
+        "Status": status,
+    }))
 
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    summary = "\n".join(summary_parts)
+    
+    store_facts("traceroute_from_ap", {
+        "Task ID": task_id,
+        "Status": status,
+        "Target": target,
+    })
+
+    return [TextContent(type="text", text=summary)]

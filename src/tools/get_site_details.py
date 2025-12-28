@@ -9,7 +9,8 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_json
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -61,45 +62,79 @@ async def handle_get_site_details(args: dict[str, Any]) -> list[TextContent]:
     download_mbps = bandwidth.get("downloadMbps", 0)
     upload_mbps = bandwidth.get("uploadMbps", 0)
 
-    # Step 4: Create detailed summary with professional labels
+    # Step 4: Create detailed summary with verification guardrails
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Site": site_name,
+        "Health": health,
+        "Total devices": f"{total_devices} devices",
+        "Online devices": f"{online_devices} devices",
+        "Offline devices": f"{offline_devices} devices",
+        "Total clients": f"{total_clients} clients",
+    }))
+    
     health_label = {"GOOD": "[OK]", "FAIR": "[WARN]", "POOR": "[CRIT]"}.get(health, "[--]")
 
-    summary = f"[SITE] Site Details: {site_name} (ID: {site_id})\n"
-    summary += f"\n[STATS] Health: {health_label} {health}\n"
+    summary_parts.append(f"\n[SITE] Site Details: {site_name} (ID: {site_id})")
+    summary_parts.append(f"\n[STATS] Health: {health_label} {health}")
 
     # Devices
-    summary += f"\n[DEV] Devices: {total_devices} total\n"
-    summary += f"  * [UP] Online: {online_devices}\n"
-    summary += f"  * [DN] Offline: {offline_devices}\n"
+    summary_parts.append(f"\n[DEV] Devices: {total_devices} devices total")
+    summary_parts.append(f"  * [UP] Online: {online_devices} devices")
+    summary_parts.append(f"  * [DN] Offline: {offline_devices} devices")
     if devices_by_type:
-        summary += f"  * By Type: {dict(devices_by_type)}\n"
+        summary_parts.append(f"  * By Type:")
+        for dtype, dcount in devices_by_type.items():
+            summary_parts.append(f"    - {dtype}: {dcount} devices")
 
     # Clients
-    summary += f"\n[CLI] Clients: {total_clients} connected\n"
-    summary += f"  * [WIFI] Wireless: {wireless_clients}\n"
-    summary += f"  * [WIRED] Wired: {wired_clients}\n"
+    summary_parts.append(f"\n[CLI] Clients: {total_clients} clients connected")
+    summary_parts.append(f"  * [WIFI] Wireless: {wireless_clients} clients")
+    summary_parts.append(f"  * [WIRED] Wired: {wired_clients} clients")
 
     # Alerts
     if total_alerts > 0:
-        summary += f"\n[ALERT] Alerts: {total_alerts} active\n"
+        summary_parts.append(f"\n[ALERT] Alerts: {total_alerts} active")
         if critical_alerts > 0:
-            summary += f"  * [CRIT] Critical: {critical_alerts}\n"
+            summary_parts.append(f"  * [CRIT] Critical: {critical_alerts}")
         if warning_alerts > 0:
-            summary += f"  * [WARN] Warning: {warning_alerts}\n"
+            summary_parts.append(f"  * [WARN] Warning: {warning_alerts}")
     else:
-        summary += "\n[OK] No active alerts\n"
+        summary_parts.append("\n[OK] No active alerts")
 
     # Bandwidth
     if download_mbps or upload_mbps:
-        summary += "\n[TREND] Bandwidth Usage:\n"
-        summary += f"  * [DN] Download: {download_mbps:.2f} Mbps\n"
-        summary += f"  * [UP] Upload: {upload_mbps:.2f} Mbps\n"
+        summary_parts.append("\n[TREND] Bandwidth Usage:")
+        summary_parts.append(f"  * [DN] Download: {download_mbps:.2f} Mbps")
+        summary_parts.append(f"  * [UP] Upload: {upload_mbps:.2f} Mbps")
 
     # Warnings
     if offline_devices > total_devices * 0.2:
-        summary += f"\n[WARN] {offline_devices} devices offline (>{20}%)\n"
+        summary_parts.append(f"\n[WARN] {offline_devices} devices offline (>{20}%)")
     if critical_alerts > 0:
-        summary += f"[WARN] Action Required: {critical_alerts} critical alerts\n"
+        summary_parts.append(f"[WARN] Action Required: {critical_alerts} critical alerts")
 
-    # Step 5: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Site": site_name,
+        "Total devices": total_devices,
+        "Online": online_devices,
+        "Offline": offline_devices,
+        "Total clients": total_clients,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 5: Store facts and return summary (NO raw JSON)
+    store_facts("get_site_details", {
+        "Site": site_name,
+        "Health": health,
+        "Total devices": total_devices,
+        "Online devices": online_devices,
+        "Offline devices": offline_devices,
+        "Total clients": total_clients,
+    })
+    
+    return [TextContent(type="text", text=summary)]

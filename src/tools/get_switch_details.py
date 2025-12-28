@@ -9,7 +9,9 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_json
+from src.tools.base import VerificationGuards, validate_input
+from src.tools.models import GetSwitchDetailsInput
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -17,14 +19,11 @@ logger = logging.getLogger("aruba-noc-server")
 async def handle_get_switch_details(args: dict[str, Any]) -> list[TextContent]:
     """Tool 7: Get Switch Details - /network-monitoring/v1alpha1/switch/{serial}"""
 
-    # Step 1: Validate required parameter
-    serial = args.get("serial")
-    if not serial:
-        return [
-            TextContent(
-                type="text", text="[ERR] Parameter 'serial' is required. Please provide the switch serial number."
-            )
-        ]
+    # Step 1: Validate input with Pydantic
+    validated = validate_input(GetSwitchDetailsInput, args, "get_switch_details")
+    if isinstance(validated, list):
+        return validated  # Validation error response
+    serial = validated.serial
 
     # Step 2: Call Aruba API (path parameter, not query param)
     try:
@@ -50,26 +49,53 @@ async def handle_get_switch_details(args: dict[str, Any]) -> list[TextContent]:
     stack_member = data.get("stackMember", False)
     site_name = data.get("siteName", "Unknown")
 
-    # Step 4: Create detailed summary with professional labels
+    # Step 4: Create detailed summary with verification guardrails
+    summary_parts = []
+
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Switch Name": device_name,
+        "Serial": serial,
+        "Status": status,
+        "Total ports": f"{port_count} ports",
+    }))
+
     status_label = "[UP]" if status == "ONLINE" else "[DN]"
 
-    summary = f"[SW] Switch Details: {device_name}\n"
-    summary += f"\n[STATUS] {status_label} {status}\n"
-    summary += f"[MODEL] {model}\n"
-    summary += f"[SERIAL] {serial}\n"
-    summary += f"[FW] Firmware: {firmware}\n"
-    summary += f"[UPTIME] {uptime} seconds\n"
-    summary += f"[PORTS] {port_count}\n"
-    summary += f"[LOC] Location: {site_name}\n"
+    summary_parts.append(f"\n[SW] Switch Details: {device_name}")
+    summary_parts.append(f"\n[STATUS] {status_label} {status}")
+    summary_parts.append(f"[MODEL] {model}")
+    summary_parts.append(f"[SERIAL] {serial}")
+    summary_parts.append(f"[FW] Firmware: {firmware}")
+    summary_parts.append(f"[UPTIME] {uptime} seconds")
+    summary_parts.append(f"[PORTS] {port_count} ports")
+    summary_parts.append(f"[LOC] Location: {site_name}")
 
     if stack_member:
-        summary += "[STACK] Stack Member: Yes\n"
+        summary_parts.append("[STACK] Stack Member: Yes")
 
     # Performance indicators
     if cpu_util > 80:
-        summary += f"\n[WARN] High CPU: {cpu_util}%\n"
+        summary_parts.append(f"\n[WARN] High CPU: {cpu_util}%")
     if mem_util > 80:
-        summary += f"[WARN] High Memory: {mem_util}%\n"
+        summary_parts.append(f"[WARN] High Memory: {mem_util}%")
 
-    # Step 5: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Switch": device_name,
+        "Status": status,
+        "Ports": port_count,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 5: Store facts and return summary (NO raw JSON)
+    store_facts("get_switch_details", {
+        "Switch Name": device_name,
+        "Serial": serial,
+        "Status": status,
+        "Total ports": port_count,
+        "Site": site_name,
+    })
+
+    return [TextContent(type="text", text=summary)]

@@ -9,7 +9,8 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_json
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -67,25 +68,35 @@ async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent
         iface for iface in data.get("interfaces", []) if iface.get("crcErrors", 0) > 0 or iface.get("collisions", 0) > 0
     ]
 
-    # Step 5: Create interface summary
-    summary = "[PORT] Switch Interface Report\n"
-    summary += f"\n[NAME] Switch: {switch_name}\n"
-    summary += f"[MODEL] Model: {model}\n"
-    summary += f"[SERIAL] Serial: {serial}\n"
+    # Step 5: Create interface summary with verification guardrails
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total ports": f"{total_ports} ports",
+        "Ports UP": f"{up_ports} ports",
+        "Ports DOWN": f"{down_ports} ports",
+        "PoE ports": f"{poe_ports} ports",
+    }))
+    
+    summary_parts.append("\n[PORT] Switch Interface Report")
+    summary_parts.append(f"\n[NAME] Switch: {switch_name}")
+    summary_parts.append(f"[MODEL] Model: {model}")
+    summary_parts.append(f"[SERIAL] Serial: {serial}")
 
-    summary += "\n[STATS] Port Summary:\n"
-    summary += f"  [PORT] Total Ports: {total_ports}\n"
-    summary += f"  [UP] UP: {up_ports} | [DN] DOWN: {down_ports}\n"
-    summary += f"  [TRUNK] Trunk: {trunk_ports} | [ACCESS] Access: {access_ports}\n"
+    summary_parts.append("\n[STATS] Port Summary (port counts):")
+    summary_parts.append(f"  [PORT] Total Ports: {total_ports} ports")
+    summary_parts.append(f"  [UP] UP: {up_ports} ports | [DN] DOWN: {down_ports} ports")
+    summary_parts.append(f"  [TRUNK] Trunk: {trunk_ports} ports | [ACCESS] Access: {access_ports} ports")
 
     if poe_ports > 0:
-        summary += f"  [POE] PoE Ports: {poe_ports} (consuming {total_poe_power:.1f}W)\n"
+        summary_parts.append(f"  [POE] PoE Ports: {poe_ports} ports (consuming {total_poe_power:.1f}W)")
 
     if status_filter != "ALL":
-        summary += f"\n[FILTER] Filtered: Showing {shown_ports} {status_filter} ports\n"
+        summary_parts.append(f"\n[FILTER] Filtered: Showing {shown_ports} {status_filter} ports")
 
     # Port details
-    summary += "\n[PORT] Port Details:\n"
+    summary_parts.append("\n[PORT] Port Details:")
     for iface in interfaces[:20]:  # Show first 20 ports
         port_name = iface.get("portName", "Unknown")
         oper_status = iface.get("operStatus", "UNKNOWN")
@@ -115,41 +126,41 @@ async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent
         if neighbor:
             port_line += f" | [LINK]{neighbor}"
 
-        summary += f"{port_line}\n"
+        summary_parts.append(port_line)
 
     if len(interfaces) > 20:
-        summary += f"  ... and {len(interfaces) - 20} more ports\n"
+        summary_parts.append(f"  ... and {len(interfaces) - 20} more ports")
 
     # Error analysis
     if error_ports:
-        summary += f"\n[WARN] Ports with Errors ({len(error_ports)}):\n"
+        summary_parts.append(f"\n[WARN] Ports with Errors ({len(error_ports)}):")
         for iface in error_ports[:5]:
             port_name = iface.get("portName", "Unknown")
             crc = iface.get("crcErrors", 0)
             collisions = iface.get("collisions", 0)
             drops = iface.get("drops", 0)
 
-            summary += f"  [WARN] {port_name}:"
+            error_line = f"  [WARN] {port_name}:"
             if crc > 0:
-                summary += f" CRC={crc}"
+                error_line += f" CRC={crc}"
             if collisions > 0:
-                summary += f" Collisions={collisions}"
+                error_line += f" Collisions={collisions}"
             if drops > 0:
-                summary += f" Drops={drops}"
-            summary += "\n"
+                error_line += f" Drops={drops}"
+            summary_parts.append(error_line)
 
     # Health insights
-    summary += "\n[HEALTH] Health Insights:\n"
+    summary_parts.append("\n[HEALTH] Health Insights:")
 
     if down_ports == 0:
-        summary += "  [OK] All ports operational\n"
+        summary_parts.append("  [OK] All ports operational")
     elif down_ports < total_ports * 0.1:
-        summary += f"  [OK] {down_ports} ports down - normal for unused ports\n"
+        summary_parts.append(f"  [OK] {down_ports} ports down - normal for unused ports")
     else:
-        summary += f"  [WARN] {down_ports} ports down - investigate connectivity\n"
+        summary_parts.append(f"  [WARN] {down_ports} ports down - investigate connectivity")
 
     if error_ports:
-        summary += f"  [WARN] {len(error_ports)} ports with errors - check cabling\n"
+        summary_parts.append(f"  [WARN] {len(error_ports)} ports with errors - check cabling")
 
     if total_poe_power > 0:
         # Assuming 370W budget for typical switch
@@ -157,11 +168,28 @@ async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent
         poe_usage_pct = (total_poe_power / poe_budget) * 100
 
         if poe_usage_pct > 90:
-            summary += f"  [CRIT] PoE budget critical - {poe_usage_pct:.1f}% used\n"
+            summary_parts.append(f"  [CRIT] PoE budget critical - {poe_usage_pct:.1f}% used")
         elif poe_usage_pct > 70:
-            summary += f"  [WARN] PoE budget high - {poe_usage_pct:.1f}% used\n"
+            summary_parts.append(f"  [WARN] PoE budget high - {poe_usage_pct:.1f}% used")
         else:
-            summary += f"  [OK] PoE budget healthy - {poe_usage_pct:.1f}% used\n"
+            summary_parts.append(f"  [OK] PoE budget healthy - {poe_usage_pct:.1f}% used")
 
-    # Step 6: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total ports": total_ports,
+        "Ports UP": up_ports,
+        "Ports DOWN": down_ports,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 6: Store facts and return summary (NO raw JSON)
+    store_facts("get_switch_interfaces", {
+        "Switch": switch_name,
+        "Total ports": total_ports,
+        "Ports UP": up_ports,
+        "Ports DOWN": down_ports,
+        "PoE ports": poe_ports,
+    })
+    
+    return [TextContent(type="text", text=summary)]

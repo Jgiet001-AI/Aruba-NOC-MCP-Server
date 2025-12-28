@@ -9,6 +9,8 @@ from typing import Any
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -75,17 +77,25 @@ async def handle_list_gateways(args: dict[str, Any]) -> list[TextContent]:
         model = gw.get("model", "Unknown")
         by_model[model] = by_model.get(model, 0) + 1
 
-    # Step 5: Create human-readable summary
+    # Step 5: Create human-readable summary with verification guardrails
     summary_parts = []
-    summary_parts.append("**Gateway Inventory Overview**")
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total gateways": f"{total} gateways",
+        "Online gateways": f"{by_status.get('ONLINE', 0)} gateways",
+        "Offline gateways": f"{by_status.get('OFFLINE', 0)} gateways",
+    }))
+    
+    summary_parts.append("\n**Gateway Inventory Overview**")
     summary_parts.append(f"Total gateways: {total} (showing {count})\n")
 
     # Status breakdown
-    summary_parts.append("**By Status:**")
+    summary_parts.append("**By Status (actual gateway counts):**")
     online = by_status.get("ONLINE", 0)
     offline = by_status.get("OFFLINE", 0)
-    summary_parts.append(f"  [UP] ONLINE: {online}")
-    summary_parts.append(f"  [DN] OFFLINE: {offline}")
+    summary_parts.append(f"  [UP] ONLINE: {online} gateways")
+    summary_parts.append(f"  [DN] OFFLINE: {offline} gateways")
     if total > 0:
         uptime_pct = online / total * 100
         summary_parts.append(f"  [AVAIL] Availability: {uptime_pct:.1f}%")
@@ -94,17 +104,17 @@ async def handle_list_gateways(args: dict[str, Any]) -> list[TextContent]:
     summary_parts.append("\n**By Deployment Type:**")
     for deployment, count_val in sorted(by_deployment.items()):
         label = "[CLUST]" if deployment == "Clustered" else "[SOLO]"
-        summary_parts.append(f"  {label} {deployment}: {count_val}")
+        summary_parts.append(f"  {label} {deployment}: {count_val} gateways")
 
     # Model inventory
     if by_model:
         summary_parts.append("\n**By Model:**")
         for model, count_val in sorted(by_model.items()):
-            summary_parts.append(f"  [HW] {model}: {count_val}")
+            summary_parts.append(f"  [HW] {model}: {count_val} gateways")
 
     # Offline gateways (critical info)
     if offline_gateways:
-        summary_parts.append(f"\n[ALERT] **Offline Gateways ({len(offline_gateways)}):**")
+        summary_parts.append(f"\n[ALERT] **Offline Gateways ({len(offline_gateways)} gateways):**")
         for i, gw in enumerate(offline_gateways[:10], 1):  # Top 10
             summary_parts.append(f"  {i}. {gw['name']} ({gw['serial']}) at {gw['site']}")
         if len(offline_gateways) > 10:
@@ -114,7 +124,20 @@ async def handle_list_gateways(args: dict[str, Any]) -> list[TextContent]:
     if next_cursor:
         summary_parts.append("\n[MORE] Results available (use next cursor)")
 
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total gateways": total,
+        "Online": online,
+        "Offline": offline,
+    }))
+
     summary = "\n".join(summary_parts)
 
-    # Step 6: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n\n{_format_json(data)}")]
+    # Step 6: Store facts and return summary (NO raw JSON)
+    store_facts("list_gateways", {
+        "Total gateways": total,
+        "Online gateways": online,
+        "Offline gateways": offline,
+    })
+    
+    return [TextContent(type="text", text=summary)]

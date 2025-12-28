@@ -9,7 +9,8 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_json
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -57,15 +58,36 @@ async def handle_ping_from_gateway(args: dict[str, Any]) -> list[TextContent]:
     gateway_name = data.get("gatewayName", serial)
     source_interface = data.get("sourceInterface", "Primary uplink")
 
-    # Step 5: Create response with polling instructions
-    summary = "[PING] Ping Test Initiated\n"
-    summary += f"\n[LOC] From: {gateway_name} ({serial})\n"
-    summary += f"[LINK] Interface: {source_interface}\n"
-    summary += f"[PING] To: {target}\n"
-    summary += f"[DATA] Packets: {payload['count']}\n"
-    summary += f"\n[ASYNC] Status: {status}\n"
-    summary += f"[INFO] Task ID: {task_id}\n"
-    summary += "\n[INFO] This is an async operation. Poll for results using:\n"
-    summary += f"   get_async_test_result(task_id: '{task_id}')\n"
+    # Step 5: Create response with verification guardrails
+    summary_parts = []
+    
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Task ID": task_id,
+        "Status": status,
+        "Target": target,
+    }))
+    
+    summary_parts.append("\n[PING] Ping Test Initiated")
+    summary_parts.append(f"\n[LOC] From: {gateway_name} ({serial})")
+    summary_parts.append(f"[LINK] Interface: {source_interface}")
+    summary_parts.append(f"[PING] To: {target}")
+    summary_parts.append(f"[DATA] Packets: {payload['count']}")
+    summary_parts.append(f"\n[ASYNC] Status: {status}")
+    summary_parts.append(f"[INFO] Task ID: {task_id}")
+    summary_parts.append("\n[INFO] This is an async operation. Poll for results using:")
+    summary_parts.append(f"   get_async_test_result(task_id: '{task_id}')")
+    
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Task ID": task_id,
+        "Status": status,
+    }))
 
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    summary = "\n".join(summary_parts)
+    
+    store_facts("ping_from_gateway", {
+        "Task ID": task_id,
+        "Status": status,
+        "Target": target,
+    })
+
+    return [TextContent(type="text", text=summary)]

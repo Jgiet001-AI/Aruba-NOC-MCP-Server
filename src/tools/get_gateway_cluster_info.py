@@ -9,7 +9,8 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_json, format_uptime
+from src.tools.base import format_uptime, VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -53,14 +54,23 @@ async def handle_get_gateway_cluster_info(args: dict[str, Any]) -> list[TextCont
         elif role == "STANDBY":
             standby.append(member)
 
-    # Step 4: Create cluster summary
+    # Step 4: Create cluster summary with verification guardrails
     status_label = "[OK]" if cluster_status == "HEALTHY" else "[WARN]"
     ha_label = "[OK]" if ha_enabled else "[DN]"
 
-    summary = f"[CLUSTER] Gateway Cluster: {cluster_name}\n"
-    summary += f"\n{status_label} Status: {cluster_status}\n"
-    summary += f"{ha_label} High Availability: {'Enabled' if ha_enabled else 'Disabled'}\n"
-    summary += f"\n[MEMBERS] Cluster Members ({len(members)} total):\n"
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total members": f"{len(members)} members",
+        "Status": cluster_status,
+        "HA enabled": "Yes" if ha_enabled else "No",
+    }))
+    
+    summary_parts.append(f"\n[CLUSTER] Gateway Cluster: {cluster_name}")
+    summary_parts.append(f"\n{status_label} Status: {cluster_status}")
+    summary_parts.append(f"{ha_label} High Availability: {'Enabled' if ha_enabled else 'Disabled'}")
+    summary_parts.append(f"\n[MEMBERS] Cluster Members ({len(members)} total):")
 
     # Primary gateway
     if primary:
@@ -71,54 +81,70 @@ async def handle_get_gateway_cluster_info(args: dict[str, Any]) -> list[TextCont
 
         status_icon = "[UP]" if gw_status == "ONLINE" else "[DN]"
 
-        summary += f"\n[PRIMARY] {gw_name}\n"
-        summary += f"  {status_icon} Status: {gw_status}\n"
-        summary += f"  [SERIAL] {gw_serial}\n"
-        summary += f"  [UPTIME] {format_uptime(uptime)}\n"
+        summary_parts.append(f"\n[PRIMARY] {gw_name}")
+        summary_parts.append(f"  {status_icon} Status: {gw_status}")
+        summary_parts.append(f"  [SERIAL] {gw_serial}")
+        summary_parts.append(f"  [UPTIME] {format_uptime(uptime)}")
     else:
-        summary += "\n[WARN] No primary gateway detected!\n"
+        summary_parts.append("\n[WARN] No primary gateway detected!")
 
     # Backup gateways
     if backups:
-        summary += f"\n[BACKUP] BACKUP Gateways ({len(backups)}):\n"
+        summary_parts.append(f"\n[BACKUP] BACKUP Gateways ({len(backups)}):")
         for backup in backups:
             gw_name = backup.get("gatewayName", "Unknown")
             gw_status = backup.get("status", "UNKNOWN")
             status_icon = "[UP]" if gw_status == "ONLINE" else "[DN]"
-            summary += f"  {status_icon} {gw_name} - {gw_status}\n"
+            summary_parts.append(f"  {status_icon} {gw_name} - {gw_status}")
 
     # Standby gateways
     if standby:
-        summary += f"\n[STANDBY] STANDBY Gateways ({len(standby)}):\n"
+        summary_parts.append(f"\n[STANDBY] STANDBY Gateways ({len(standby)}):")
         for sb in standby:
             gw_name = sb.get("gatewayName", "Unknown")
-            summary += f"  * {gw_name}\n"
+            summary_parts.append(f"  * {gw_name}")
 
     # Configuration sync status
-    summary += f"\n[SYNC] Configuration Sync: {sync_status}\n"
+    summary_parts.append(f"\n[SYNC] Configuration Sync: {sync_status}")
     if sync_status != "IN_SYNC":
-        summary += "  [WARN] Cluster members may have configuration drift\n"
+        summary_parts.append("  [WARN] Cluster members may have configuration drift")
 
     # Health analysis
-    summary += "\n[STATS] Health Analysis:\n"
+    summary_parts.append("\n[STATS] Health Analysis:")
 
     if not ha_enabled:
-        summary += "  [WARN] HA is disabled - no automatic failover\n"
+        summary_parts.append("  [WARN] HA is disabled - no automatic failover")
 
     if not primary:
-        summary += "  [CRIT] No primary gateway - cluster inoperative\n"
+        summary_parts.append("  [CRIT] No primary gateway - cluster inoperative")
     elif primary.get("status") != "ONLINE":
-        summary += f"  [CRIT] Primary gateway is {primary.get('status')}\n"
+        summary_parts.append(f"  [CRIT] Primary gateway is {primary.get('status')}")
 
     if not backups and ha_enabled:
-        summary += "  [WARN] No backup gateways - HA cannot function\n"
+        summary_parts.append("  [WARN] No backup gateways - HA cannot function")
 
     offline_backups = [b for b in backups if b.get("status") != "ONLINE"]
     if offline_backups:
-        summary += f"  [WARN] {len(offline_backups)} backup gateway(s) offline\n"
+        summary_parts.append(f"  [WARN] {len(offline_backups)} backup gateway(s) offline")
 
     if cluster_status == "HEALTHY" and ha_enabled and backups:
-        summary += "  [OK] Cluster is healthy and redundant\n"
+        summary_parts.append("  [OK] Cluster is healthy and redundant")
 
-    # Step 5: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total members": len(members),
+        "Status": cluster_status,
+        "HA enabled": "Yes" if ha_enabled else "No",
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 5: Store facts and return summary (NO raw JSON)
+    store_facts("get_gateway_cluster_info", {
+        "Cluster": cluster_name,
+        "Total members": len(members),
+        "Status": cluster_status,
+        "HA enabled": "Yes" if ha_enabled else "No",
+    })
+    
+    return [TextContent(type="text", text=summary)]

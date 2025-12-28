@@ -9,6 +9,8 @@ from typing import Any
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -82,13 +84,22 @@ async def handle_get_firmware_details(args: dict[str, Any]) -> list[TextContent]
     # Sort devices by upgrade priority (Required > Available)
     devices_needing_updates.sort(key=lambda x: (x["status"] != "Update Required", x["name"]))
 
-    # Step 5: Create human-readable summary
+    # Step 5: Create human-readable summary with verification guardrails
     summary_parts = []
-    summary_parts.append("**Firmware Status Overview**")
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total devices analyzed": f"{total_devices} devices",
+        "Up to date": f"{by_upgrade_status.get('Up To Date', 0)} devices",
+        "Update available": f"{by_upgrade_status.get('Update Available', 0)} devices",
+        "Update required": f"{by_upgrade_status.get('Update Required', 0)} devices",
+    }))
+    
+    summary_parts.append("\n**Firmware Status Overview**")
     summary_parts.append(f"Total devices analyzed: {total_devices}\n")
 
     # Upgrade status breakdown
-    summary_parts.append("**By Upgrade Status:**")
+    summary_parts.append("**By Upgrade Status (actual device counts):**")
     status_labels = {
         "Up To Date": "[OK]",
         "Update Available": "[AVAIL]",
@@ -99,13 +110,13 @@ async def handle_get_firmware_details(args: dict[str, Any]) -> list[TextContent]
         if count > 0:
             label = status_labels.get(status, "[--]")
             percentage = (count / total_devices * 100) if total_devices > 0 else 0
-            summary_parts.append(f"  {label} {status}: {count} ({percentage:.1f}%)")
+            summary_parts.append(f"  {label} {status}: {count} devices ({percentage:.1f}%)")
 
     # Device type breakdown
     if by_device_type:
         summary_parts.append("\n**By Device Type:**")
         for dtype, count in sorted(by_device_type.items()):
-            summary_parts.append(f"  [DEV] {dtype}: {count}")
+            summary_parts.append(f"  [DEV] {dtype}: {count} devices")
 
     # Classification breakdown
     if by_classification:
@@ -113,11 +124,11 @@ async def handle_get_firmware_details(args: dict[str, Any]) -> list[TextContent]
         class_labels = {"Security Patch": "[SEC]", "Bug Fix": "[BUG]", "Feature Release": "[FEAT]"}
         for classification, count in sorted(by_classification.items()):
             label = class_labels.get(classification, "[--]")
-            summary_parts.append(f"  {label} {classification}: {count}")
+            summary_parts.append(f"  {label} {classification}: {count} devices")
 
     # Devices needing updates (top priority)
     if devices_needing_updates:
-        summary_parts.append(f"\n**Devices Needing Updates ({len(devices_needing_updates)}):**")
+        summary_parts.append(f"\n**Devices Needing Updates ({len(devices_needing_updates)} devices):**")
         for i, device in enumerate(devices_needing_updates[:10], 1):  # Top 10
             priority = "[REQ]" if device["status"] == "Update Required" else "[AVAIL]"
             summary_parts.append(
@@ -125,13 +136,27 @@ async def handle_get_firmware_details(args: dict[str, Any]) -> list[TextContent]
                 f"{device['current']} -> {device['recommended']}"
             )
         if len(devices_needing_updates) > 10:
-            summary_parts.append(f"  ... and {len(devices_needing_updates) - 10} more")
+            summary_parts.append(f"  ... and {len(devices_needing_updates) - 10} more devices")
 
     # Pagination info
     if next_cursor:
         summary_parts.append("\n[MORE] Results available (use next cursor)")
 
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total devices": total_devices,
+        "Up to date": by_upgrade_status.get('Up To Date', 0),
+        "Needs update": len(devices_needing_updates),
+    }))
+
     summary = "\n".join(summary_parts)
 
-    # Step 6: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n\n{_format_json(data)}")]
+    # Step 6: Store facts and return summary (NO raw JSON)
+    store_facts("get_firmware_details", {
+        "Total devices": total_devices,
+        "Up to date": by_upgrade_status.get('Up To Date', 0),
+        "Update available": by_upgrade_status.get('Update Available', 0),
+        "Update required": by_upgrade_status.get('Update Required', 0),
+    })
+    
+    return [TextContent(type="text", text=summary)]

@@ -2,20 +2,16 @@
 List IDPS Threats - MCP tools for IDPS threats listing in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
-
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_list_idps_threats(args: dict[str, Any]) -> list[TextContent]:
     """Tool 27: List IDPS Threats - /network-monitoring/v1alpha1/threats"""
@@ -69,12 +65,22 @@ async def handle_list_idps_threats(args: dict[str, Any]) -> list[TextContent]:
         if severity in ["CRITICAL", "HIGH"]:
             recent_threats.append(threat)
 
-    # Step 5: Create threat summary
-    summary = "[SEC] Security Threat Report\n"
-    summary += f"\n[STATS] Total Threats: {total} (showing {len(threats)})\n"
+    # Step 5: Create threat summary with verification guardrails
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total threats": f"{total} threats",
+        "Critical": f"{by_severity.get('CRITICAL', 0)} threats",
+        "High": f"{by_severity.get('HIGH', 0)} threats",
+        "Blocked": f"{by_action.get('BLOCKED', 0)} threats",
+    }))
+    
+    summary_parts.append("\n[SEC] Security Threat Report")
+    summary_parts.append(f"\n[STATS] Total Threats: {total} (showing {len(threats)})")
 
     # Severity breakdown
-    summary += "\n[SEV] By Severity:\n"
+    summary_parts.append("\n[SEV] By Severity (threat counts):")
     severity_order = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
     for sev in severity_order:
         count = by_severity.get(sev, 0)
@@ -85,26 +91,26 @@ async def handle_list_idps_threats(args: dict[str, Any]) -> list[TextContent]:
                 "MEDIUM": "[MED]",
                 "LOW": "[LOW]"
             }.get(sev, "[--]")
-            summary += f"  {label} {sev}: {count}\n"
+            summary_parts.append(f"  {label} {sev}: {count} threats")
 
     # Type breakdown
-    summary += "\n[TYPE] By Type:\n"
+    summary_parts.append("\n[TYPE] By Type:")
     for threat_type, count in sorted(by_type.items(), key=lambda x: x[1], reverse=True)[:5]:
-        summary += f"  * {threat_type}: {count}\n"
+        summary_parts.append(f"  * {threat_type}: {count} threats")
 
     # Action breakdown
-    summary += "\n[ACT] Mitigation Actions:\n"
+    summary_parts.append("\n[ACT] Mitigation Actions:")
     for action, count in by_action.items():
         action_label = {
             "BLOCKED": "[BLOCKED]",
             "ALLOWED": "[ALLOWED]",
             "LOGGED": "[LOGGED]"
         }.get(action, "[--]")
-        summary += f"  {action_label} {action}: {count}\n"
+        summary_parts.append(f"  {action_label} {action}: {count} threats")
 
     # Recent critical/high threats
     if recent_threats:
-        summary += "\n[CRIT] Recent Critical/High Threats (top 5):\n"
+        summary_parts.append("\n[CRIT] Recent Critical/High Threats (top 5):")
         for threat in recent_threats[:5]:
             threat_name = threat.get("threatName", "Unknown")
             severity = threat.get("severity", "UNKNOWN")
@@ -115,34 +121,48 @@ async def handle_list_idps_threats(args: dict[str, Any]) -> list[TextContent]:
 
             severity_label = "[CRIT]" if severity == "CRITICAL" else "[HIGH]"
 
-            summary += f"\n  {severity_label} {threat_name} ({severity})\n"
-            summary += f"    {source_ip} -> {dest_ip}\n"
-            summary += f"    [TIME] {timestamp} | Action: {action}\n"
+            summary_parts.append(f"\n  {severity_label} {threat_name} ({severity})")
+            summary_parts.append(f"    {source_ip} -> {dest_ip}")
+            summary_parts.append(f"    [TIME] {timestamp} | Action: {action}")
 
     # Security posture assessment
     critical_count = by_severity.get("CRITICAL", 0)
     high_count = by_severity.get("HIGH", 0)
     blocked_count = by_action.get("BLOCKED", 0)
 
-    summary += "\n[STATS] Security Posture:\n"
+    summary_parts.append("\n[STATS] Security Posture:")
 
     if critical_count > 0:
-        summary += f"  [CRIT] {critical_count} critical threats require immediate attention!\n"
+        summary_parts.append(f"  [CRIT] {critical_count} critical threats require immediate attention!")
 
     if high_count > 5:
-        summary += f"  [WARN] {high_count} high-severity threats detected\n"
+        summary_parts.append(f"  [WARN] {high_count} high-severity threats detected")
 
     if total > 0:
         block_rate = (blocked_count / total) * 100
         if block_rate > 90:
-            summary += f"  [OK] Excellent threat mitigation - {block_rate:.1f}% blocked\n"
+            summary_parts.append(f"  [OK] Excellent threat mitigation - {block_rate:.1f}% blocked")
         elif block_rate > 70:
-            summary += f"  [OK] Good threat mitigation - {block_rate:.1f}% blocked\n"
+            summary_parts.append(f"  [OK] Good threat mitigation - {block_rate:.1f}% blocked")
         else:
-            summary += f"  [WARN] Review mitigation policies - only {block_rate:.1f}% blocked\n"
+            summary_parts.append(f"  [WARN] Review mitigation policies - only {block_rate:.1f}% blocked")
 
-    # Step 6: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total threats": total,
+        "Critical": critical_count,
+        "High": high_count,
+        "Blocked": blocked_count,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 6: Store facts and return summary (NO raw JSON)
+    store_facts("list_idps_threats", {
+        "Total threats": total,
+        "Critical": critical_count,
+        "High": high_count,
+        "Blocked": blocked_count,
+    })
+    
+    return [TextContent(type="text", text=summary)]

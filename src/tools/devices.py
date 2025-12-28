@@ -9,6 +9,8 @@ from typing import Any
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -57,14 +59,27 @@ async def handle_get_device_list(args: dict[str, Any]) -> list[TextContent]:
         by_status[status] = by_status.get(status, 0) + 1
         by_deployment[deployment] = by_deployment.get(deployment, 0) + 1
 
-    # Step 5: Create human-readable summary
+    # Calculate actual online/offline counts
+    online_count = by_status.get("ONLINE", 0)
+    offline_count = by_status.get("OFFLINE", 0)
+
+    # Step 5: Create human-readable summary with verification guardrails
     summary_parts = []
-    summary_parts.append("**Device Inventory Summary**")
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total devices in system": f"{total} devices",
+        "Showing in this response": f"{count} devices",
+        "Online devices": f"{online_count} devices",
+        "Offline devices": f"{offline_count} devices",
+    }))
+    
+    summary_parts.append("\n**Device Inventory Summary**")
     summary_parts.append(f"Total devices: {total} (showing {count})\n")
 
     # Device type breakdown
     if by_type:
-        summary_parts.append("**By Device Type:**")
+        summary_parts.append("**By Device Type (actual counts):**")
         type_labels = {
             "ACCESS_POINT": "[AP]",
             "SWITCH": "[SW]",
@@ -73,21 +88,22 @@ async def handle_get_device_list(args: dict[str, Any]) -> list[TextContent]:
         }
         for dtype, dcount in sorted(by_type.items()):
             label = type_labels.get(dtype, "[??]")
-            summary_parts.append(f"  {label} {dtype}: {dcount}")
+            summary_parts.append(f"  {label} {dtype}: {dcount} devices")
 
-    # Status breakdown
+    # Status breakdown with explicit counts
     if by_status:
-        summary_parts.append("\n**By Status:**")
+        summary_parts.append("\n**By Status (actual device counts, not percentages):**")
         status_labels = {"ONLINE": "[UP]", "OFFLINE": "[DN]", "UNKNOWN": "[--]"}
         for status, scount in sorted(by_status.items()):
             label = status_labels.get(status, "[??]")
-            summary_parts.append(f"  {label} {status}: {scount}")
+            pct = (scount / count * 100) if count > 0 else 0
+            summary_parts.append(f"  {label} {status}: {scount} devices ({pct:.1f}% of shown)")
 
     # Deployment breakdown
     if by_deployment:
         summary_parts.append("\n**By Deployment:**")
         for deployment, dep_count in sorted(by_deployment.items()):
-            summary_parts.append(f"  - {deployment}: {dep_count}")
+            summary_parts.append(f"  - {deployment}: {dep_count} devices")
 
     # Pagination info
     if next_cursor:
@@ -95,7 +111,22 @@ async def handle_get_device_list(args: dict[str, Any]) -> list[TextContent]:
             "\n[PAGINATED] More results available (use next cursor for pagination)"
         )
 
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total devices": total,
+        "Online devices": online_count,
+        "Offline devices": offline_count,
+    }))
+
     summary = "\n".join(summary_parts)
 
-    # Step 6: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n\n{_format_json(data)}")]
+    # Step 6: Store facts for verification and return summary (NO raw JSON)
+    store_facts("get_device_list", {
+        "Total devices": total,
+        "Showing in response": count,
+        "Online devices": online_count,
+        "Offline devices": offline_count,
+        "By type": by_type,
+    })
+    
+    return [TextContent(type="text", text=summary)]

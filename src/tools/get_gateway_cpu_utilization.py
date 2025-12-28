@@ -8,7 +8,8 @@ from typing import Any
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_json
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -46,7 +47,7 @@ async def handle_get_gateway_cpu_utilization(args: dict[str, Any]) -> list[TextC
 
     if total_samples == 0:
         summary = f"[INFO] No CPU data available for gateway {serial}\n"
-        return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+        return [TextContent(type="text", text=summary)]
 
     # Calculate statistics
     cpu_values = [s.get("cpuPercent", 0) for s in samples]
@@ -54,9 +55,17 @@ async def handle_get_gateway_cpu_utilization(args: dict[str, Any]) -> list[TextC
     max_cpu = max(cpu_values)
     min_cpu = min(cpu_values)
 
-    # Step 5: Create human-readable summary
+    # Step 5: Create human-readable summary with verification guardrails
     summary_parts = []
-    summary_parts.append(f"[GW] Gateway CPU Utilization: {serial}")
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Average CPU": f"{avg_cpu:.1f}%",
+        "Min CPU": f"{min_cpu:.1f}%",
+        "Max CPU": f"{max_cpu:.1f}%",
+    }))
+    
+    summary_parts.append(f"\n[GW] Gateway CPU Utilization: {serial}")
     summary_parts.append(f"\n[STATS] Statistics ({total_samples} samples):")
 
     # Format with status indicators based on thresholds
@@ -78,7 +87,21 @@ async def handle_get_gateway_cpu_utilization(args: dict[str, Any]) -> list[TextC
     else:
         summary_parts.append("\n[OK] CPU utilization within normal range")
 
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Average CPU": f"{avg_cpu:.1f}%",
+        "Min CPU": f"{min_cpu:.1f}%",
+        "Max CPU": f"{max_cpu:.1f}%",
+    }))
+
     summary = "\n".join(summary_parts)
 
-    # Step 6: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n\n{format_json(data)}")]
+    # Step 6: Store facts and return summary (NO raw JSON)
+    store_facts("get_gateway_cpu_utilization", {
+        "Gateway": serial,
+        "Average CPU": f"{avg_cpu:.1f}%",
+        "Min CPU": f"{min_cpu:.1f}%",
+        "Max CPU": f"{max_cpu:.1f}%",
+    })
+    
+    return [TextContent(type="text", text=summary)]

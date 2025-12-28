@@ -9,8 +9,9 @@ WORKDIR /app
 # Copy dependency files first (for layer caching)
 COPY requirements.txt .
 
-# Install dependencies with uv
-RUN uv pip install --system --no-cache -r requirements.txt
+# Install dependencies with uv (including test dependencies)
+RUN uv pip install --system --no-cache -r requirements.txt && \
+    uv pip install --system --no-cache pytest pytest-asyncio pytest-cov
 
 # Copy source code
 COPY src/ ./src/

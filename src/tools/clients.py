@@ -9,6 +9,8 @@ from typing import Any
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -77,18 +79,27 @@ async def handle_list_all_clients(args: dict[str, Any]) -> list[TextContent]:
         else:
             by_experience["Unknown"] += 1
 
-    # Step 5: Create human-readable summary
+    # Step 5: Create human-readable summary with verification guardrails
     summary_parts = []
-    summary_parts.append("**Network Clients Overview**")
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total clients": f"{total} clients",
+        "Showing in response": f"{count} clients",
+        "Wireless clients": f"{by_type.get('Wireless', 0)} clients",
+        "Wired clients": f"{by_type.get('Wired', 0)} clients",
+    }))
+    
+    summary_parts.append("\n**Network Clients Overview**")
     summary_parts.append(f"Total clients: {total} (showing {count})\n")
 
     # Connection type breakdown
-    summary_parts.append("**By Connection Type:**")
+    summary_parts.append("**By Connection Type (actual counts):**")
     type_labels = {"Wireless": "[WIFI]", "Wired": "[WIRED]", "Unknown": "[--]"}
     for ctype, cnt in by_type.items():
         if cnt > 0:
             label = type_labels.get(ctype, "[--]")
-            summary_parts.append(f"  {label} {ctype}: {cnt}")
+            summary_parts.append(f"  {label} {ctype}: {cnt} clients")
 
     # Status breakdown
     if by_status:
@@ -96,7 +107,7 @@ async def handle_list_all_clients(args: dict[str, Any]) -> list[TextContent]:
         status_labels = {"Connected": "[OK]", "Disconnected": "[X]", "Idle": "[IDLE]"}
         for status, cnt in sorted(by_status.items()):
             label = status_labels.get(status, "[--]")
-            summary_parts.append(f"  {label} {status}: {cnt}")
+            summary_parts.append(f"  {label} {status}: {cnt} clients")
 
     # Experience breakdown
     summary_parts.append("\n**By Experience:**")
@@ -104,13 +115,28 @@ async def handle_list_all_clients(args: dict[str, Any]) -> list[TextContent]:
     for exp, cnt in by_experience.items():
         if cnt > 0:
             label = exp_labels.get(exp, "[--]")
-            summary_parts.append(f"  {label} {exp}: {cnt}")
+            summary_parts.append(f"  {label} {exp}: {cnt} clients")
 
     # Pagination info
     if next_cursor:
         summary_parts.append("\n[MORE] Results available (use next cursor)")
 
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total clients": total,
+        "Wireless": by_type.get('Wireless', 0),
+        "Wired": by_type.get('Wired', 0),
+    }))
+
     summary = "\n".join(summary_parts)
 
-    # Step 6: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n\n{_format_json(data)}")]
+    # Step 6: Store facts and return summary (NO raw JSON)
+    store_facts("list_all_clients", {
+        "Total clients": total,
+        "Wireless clients": by_type.get('Wireless', 0),
+        "Wired clients": by_type.get('Wired', 0),
+        "Good experience": by_experience.get('Good', 0),
+        "Poor experience": by_experience.get('Poor', 0),
+    })
+    
+    return [TextContent(type="text", text=summary)]

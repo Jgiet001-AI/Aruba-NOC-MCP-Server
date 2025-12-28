@@ -2,20 +2,17 @@
 Get Device Inventory - MCP tools for device inventory management in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_device_inventory(args: dict[str, Any]) -> list[TextContent]:
     """Tool 6: Get Device Inventory - /network-monitoring/v1alpha1/device-inventory"""
@@ -56,16 +53,42 @@ async def handle_get_device_inventory(args: dict[str, Any]) -> list[TextContent]
         by_type[device_type] = by_type.get(device_type, 0) + 1
         by_subscription[subscription] = by_subscription.get(subscription, 0) + 1
 
-    # Step 5: Create summary with professional labels
-    summary = f"[INV] Hardware Inventory: {total} devices (showing {count})\n"
-    summary += "\n[MODEL] By Model:\n"
-    for model, count in sorted(by_model.items(), key=lambda x: x[1], reverse=True)[:5]:
-        summary += f"  * {model}: {count}\n"
-    summary += f"\n[TYPE] By Type: {dict(by_type)}\n"
-    summary += f"[SUB] By Subscription: {dict(by_subscription)}"
+    # Step 5: Create summary with verification guardrails
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Total devices": f"{total} devices",
+        "Showing in response": f"{count} devices",
+    }))
+    
+    summary_parts.append(f"\n[INV] Hardware Inventory: {total} devices (showing {count})")
+    
+    summary_parts.append("\n[MODEL] By Model (device counts):")
+    for model, model_count in sorted(by_model.items(), key=lambda x: x[1], reverse=True)[:5]:
+        summary_parts.append(f"  * {model}: {model_count} devices")
+    
+    summary_parts.append(f"\n[TYPE] By Type:")
+    for dtype, type_count in sorted(by_type.items()):
+        summary_parts.append(f"  * {dtype}: {type_count} devices")
+    
+    summary_parts.append(f"\n[SUB] By Subscription:")
+    for sub, sub_count in sorted(by_subscription.items()):
+        summary_parts.append(f"  * {sub}: {sub_count} devices")
 
-    # Step 6: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n\n{_format_json(data)}"
-    )]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Total devices": total,
+        "Showing": count,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 6: Store facts and return summary (NO raw JSON)
+    store_facts("get_device_inventory", {
+        "Total devices": total,
+        "By type": by_type,
+        "By model (top 5)": dict(sorted(by_model.items(), key=lambda x: x[1], reverse=True)[:5]),
+    })
+    
+    return [TextContent(type="text", text=summary)]

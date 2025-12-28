@@ -9,7 +9,8 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_bytes, format_json
+from src.tools.base import format_bytes, VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -49,43 +50,68 @@ async def handle_get_wlan_details(args: dict[str, Any]) -> list[TextContent]:
     throughput_mbps = data.get("throughputMbps", 0)
     total_bytes = data.get("totalBytes", 0)
 
-    # Step 4: Create detailed summary
+    # Step 4: Create detailed summary with verification guardrails
     status_label = "[UP] ENABLED" if enabled else "[DN] DISABLED"
 
-    summary = f"[WIFI] WLAN Details: {wlan_name}\n"
-    summary += f"\n{status_label}\n"
-    summary += f"\nSSID: {ssid}\n"
+    summary_parts = []
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Status": "Enabled" if enabled else "Disabled",
+        "Security": security_type,
+        "Connected clients": f"{current_clients} clients",
+    }))
+    
+    summary_parts.append(f"\n[WIFI] WLAN Details: {wlan_name}")
+    summary_parts.append(f"\n{status_label}")
+    summary_parts.append(f"\nSSID: {ssid}")
 
-    summary += "\n[SEC] Security Configuration:\n"
-    summary += f"  * Type: {security_type}\n"
-    summary += f"  * Authentication: {auth_method}\n"
+    summary_parts.append("\n[SEC] Security Configuration:")
+    summary_parts.append(f"  * Type: {security_type}")
+    summary_parts.append(f"  * Authentication: {auth_method}")
     if security_type == "OPEN":
-        summary += "  [WARN] Open network - no encryption!\n"
+        summary_parts.append("  [WARN] Open network - no encryption!")
 
-    summary += "\n[NET] Network Settings:\n"
-    summary += f"  * VLAN ID: {vlan_id}\n"
-    summary += f"  * SSID Broadcast: {'Yes' if broadcast else 'Hidden'}\n"
-    summary += f"  * Band Steering: {'[OK] Enabled' if band_steering else '[--] Disabled'}\n"
-    summary += f"  * Max Clients: {max_clients}\n"
+    summary_parts.append("\n[NET] Network Settings:")
+    summary_parts.append(f"  * VLAN ID: {vlan_id}")
+    summary_parts.append(f"  * SSID Broadcast: {'Yes' if broadcast else 'Hidden'}")
+    summary_parts.append(f"  * Band Steering: {'[OK] Enabled' if band_steering else '[--] Disabled'}")
+    summary_parts.append(f"  * Max Clients: {max_clients}")
 
-    summary += "\n[CLI] Current Usage:\n"
-    summary += f"  * Connected Clients: {current_clients}\n"
+    summary_parts.append("\n[CLI] Current Usage:")
+    summary_parts.append(f"  * Connected Clients: {current_clients} clients")
     if isinstance(max_clients, int) and current_clients >= max_clients * 0.9:
-        summary += "  [WARN] Near capacity limit!\n"
+        summary_parts.append("  [WARN] Near capacity limit!")
 
-    summary += f"  * Throughput: {throughput_mbps} Mbps\n"
-    summary += f"  * Total Data: {format_bytes(total_bytes)}\n"
+    summary_parts.append(f"  * Throughput: {throughput_mbps} Mbps")
+    summary_parts.append(f"  * Total Data: {format_bytes(total_bytes)}")
 
     # Configuration recommendations
-    summary += "\n[INFO] Recommendations:\n"
+    summary_parts.append("\n[INFO] Recommendations:")
     if security_type == "OPEN" and enabled:
-        summary += "  * [WARN] Enable WPA2/WPA3 encryption for security\n"
+        summary_parts.append("  * [WARN] Enable WPA2/WPA3 encryption for security")
     if not band_steering:
-        summary += "  * Consider enabling band steering for better performance\n"
+        summary_parts.append("  * Consider enabling band steering for better performance")
     if not broadcast:
-        summary += "  * Hidden SSIDs reduce usability without significant security gain\n"
+        summary_parts.append("  * Hidden SSIDs reduce usability without significant security gain")
     if security_type == "WPA2-PERSONAL":
-        summary += "  * Consider upgrading to WPA3 for enhanced security\n"
+        summary_parts.append("  * Consider upgrading to WPA3 for enhanced security")
 
-    # Step 5: Return formatted response
-    return [TextContent(type="text", text=f"{summary}\n{format_json(data)}")]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Status": "Enabled" if enabled else "Disabled",
+        "Security": security_type,
+        "Connected clients": current_clients,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 5: Store facts and return summary (NO raw JSON)
+    store_facts("get_wlan_details", {
+        "WLAN": wlan_name,
+        "Status": "Enabled" if enabled else "Disabled",
+        "Security": security_type,
+        "Connected clients": current_clients,
+    })
+    
+    return [TextContent(type="text", text=summary)]

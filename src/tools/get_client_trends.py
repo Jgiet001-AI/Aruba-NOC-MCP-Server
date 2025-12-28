@@ -2,20 +2,16 @@
 Get Client Trends - MCP tools for client trends analysis in Aruba Central
 """
 
-import json
 import logging
 from typing import Any
 
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
+from src.tools.base import VerificationGuards
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
-
-
-def _format_json(data: dict[str, Any]) -> str:
-    """Format JSON data for display"""
-    return json.dumps(data, indent=2)
 
 async def handle_get_client_trends(args: dict[str, Any]) -> list[TextContent]:
     """Tool 9: Get Client Trends - /network-monitoring/v1alpha1/clients/trends"""
@@ -65,24 +61,33 @@ async def handle_get_client_trends(args: dict[str, Any]) -> list[TextContent]:
         avg_wireless = avg_wired = 0
         peak_time = "No data"
 
-    # Step 4: Create trend summary with professional labels
+    # Step 4: Create trend summary with verification guardrails
+    summary_parts = []
     interval = params.get("interval", "1hour")
     data_points = len(trends)
+    
+    # Verification checkpoint FIRST
+    summary_parts.append(VerificationGuards.checkpoint({
+        "Data points": f"{data_points} data points",
+        "Peak clients": f"{max_clients} clients",
+        "Average clients": f"{avg_clients:.1f} clients",
+        "Min clients": f"{min_clients} clients",
+    }))
 
-    summary = "[TREND] Client Connection Trends\n"
-    summary += f"\n[TIME] Time Period: {data_points} data points at {interval} intervals\n"
+    summary_parts.append("\n[TREND] Client Connection Trends")
+    summary_parts.append(f"\n[TIME] Time Period: {data_points} data points at {interval} intervals")
 
     # Statistics
-    summary += "\n[STATS] Statistics:\n"
-    summary += f"  * [PEAK] Peak: {max_clients} clients\n"
-    summary += f"  * [LOW] Minimum: {min_clients} clients\n"
-    summary += f"  * [AVG] Average: {avg_clients:.1f} clients\n"
-    summary += f"  * [TIME] Peak Time: {peak_time}\n"
+    summary_parts.append("\n[STATS] Statistics (client counts):")
+    summary_parts.append(f"  * [PEAK] Peak: {max_clients} clients")
+    summary_parts.append(f"  * [LOW] Minimum: {min_clients} clients")
+    summary_parts.append(f"  * [AVG] Average: {avg_clients:.1f} clients")
+    summary_parts.append(f"  * [TIME] Peak Time: {peak_time}")
 
     # Breakdown
-    summary += "\n[DATA] Average Breakdown:\n"
-    summary += f"  * [WIFI] Wireless: {avg_wireless:.1f} clients\n"
-    summary += f"  * [WIRED] Wired: {avg_wired:.1f} clients\n"
+    summary_parts.append("\n[DATA] Average Breakdown:")
+    summary_parts.append(f"  * [WIFI] Wireless: {avg_wireless:.1f} clients")
+    summary_parts.append(f"  * [WIRED] Wired: {avg_wired:.1f} clients")
 
     # Trend indicators
     if len(total_counts) >= 2:
@@ -90,18 +95,32 @@ async def handle_get_client_trends(args: dict[str, Any]) -> list[TextContent]:
         older_avg = sum(total_counts[:5]) / min(5, len(total_counts))
 
         if recent_avg > older_avg * 1.1:
-            summary += f"\n[TREND] [UP] Increasing (+{((recent_avg/older_avg - 1) * 100):.1f}%)\n"
+            summary_parts.append(f"\n[TREND] [UP] Increasing (+{((recent_avg/older_avg - 1) * 100):.1f}%)")
         elif recent_avg < older_avg * 0.9:
-            summary += f"\n[TREND] [DN] Decreasing ({((recent_avg/older_avg - 1) * 100):.1f}%)\n"
+            summary_parts.append(f"\n[TREND] [DN] Decreasing ({((recent_avg/older_avg - 1) * 100):.1f}%)")
         else:
-            summary += "\n[TREND] Stable\n"
+            summary_parts.append("\n[TREND] Stable")
 
     # Capacity warnings
     if max_clients > avg_clients * 1.5:
-        summary += "\n[WARN] Peak usage is 50% above average - consider capacity planning\n"
+        summary_parts.append("\n[WARN] Peak usage is 50% above average - consider capacity planning")
 
-    # Step 5: Return formatted response
-    return [TextContent(
-        type="text",
-        text=f"{summary}\n{_format_json(data)}"
-    )]
+    # Anti-hallucination footer
+    summary_parts.append(VerificationGuards.anti_hallucination_footer({
+        "Peak clients": max_clients,
+        "Average clients": f"{avg_clients:.1f}",
+        "Data points": data_points,
+    }))
+
+    summary = "\n".join(summary_parts)
+
+    # Step 5: Store facts and return summary (NO raw JSON)
+    store_facts("get_client_trends", {
+        "Peak clients": max_clients,
+        "Average clients": avg_clients,
+        "Min clients": min_clients,
+        "Avg wireless": avg_wireless,
+        "Avg wired": avg_wired,
+    })
+    
+    return [TextContent(type="text", text=summary)]

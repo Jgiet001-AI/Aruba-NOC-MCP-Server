@@ -98,8 +98,8 @@ class TestDevicesHandlerPatterns:
             assert "[DN]" in text  # OFFLINE
 
     @pytest.mark.asyncio
-    async def test_devices_handler_includes_json(self, mock_devices_data):
-        """Verify raw JSON data is included in response."""
+    async def test_devices_handler_includes_verification_guardrails(self, mock_devices_data):
+        """Verify verification guardrails are included in response (no raw JSON)."""
         from src.tools.devices import handle_get_device_list
 
         with patch("src.tools.devices.call_aruba_api", new_callable=AsyncMock) as mock_api:
@@ -108,9 +108,10 @@ class TestDevicesHandlerPatterns:
             result = await handle_get_device_list({})
             text = result[0].text
 
-            # Verify JSON structure markers
-            assert '"items"' in text
-            assert '"total"' in text
+            # Verify verification checkpoint is present
+            assert "VERIFICATION CHECKPOINT" in text or "[CHECKPOINT]" in text
+            # Verify anti-hallucination footer is present
+            assert "BEFORE REPORTING, VERIFY" in text
 
     @pytest.mark.asyncio
     async def test_devices_handler_default_limit(self, mock_devices_data):
