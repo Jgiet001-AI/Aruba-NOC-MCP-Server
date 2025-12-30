@@ -50,6 +50,126 @@ The interactive deployment script will:
 | APAC-EAST1 | jp1.api.central.arubanetworks.com |
 | APAC-SOUTH1 | au1.api.central.arubanetworks.com |
 
+## Platform-Specific Setup
+
+### Windows 11
+
+#### Prerequisites
+
+1. **Install Docker Desktop for Windows**
+   - Download from [docker.com](https://www.docker.com/products/docker-desktop/)
+   - During installation, select **WSL 2 backend** (recommended for best performance)
+
+2. **Enable WSL 2** (if not already installed)
+
+   ```powershell
+   # Run in PowerShell as Administrator
+   wsl --install
+   # Restart your computer after installation
+   ```
+
+3. **Verify Docker is running**
+
+   ```powershell
+   docker --version
+   docker compose version
+   ```
+
+#### Running the Server
+
+**Option A: Using Git Bash (Recommended)**
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/aruba-noc-mcp-server.git
+cd aruba-noc-mcp-server
+
+# Run the deployment script
+./deploy.sh
+```
+
+**Option B: Using PowerShell**
+
+```powershell
+# Clone the repository
+git clone https://github.com/yourusername/aruba-noc-mcp-server.git
+cd aruba-noc-mcp-server
+
+# Copy and edit environment file
+copy .env.example .env
+# Edit .env with your credentials using Notepad or VS Code
+
+# Build and start
+docker compose up -d --build
+```
+
+#### Performance Tips for Windows
+
+| Tip | Benefit |
+|-----|---------|
+| Clone repo in WSL filesystem (`~/projects/`) | 10x faster file I/O |
+| Use WSL 2 backend instead of Hyper-V | Better memory management |
+| Allocate sufficient RAM to WSL | Prevents container OOM issues |
+
+To configure WSL resources, create `%USERPROFILE%\.wslconfig`:
+
+```ini
+[wsl2]
+memory=4GB
+processors=2
+```
+
+---
+
+### macOS
+
+#### Prerequisites
+
+1. **Install Docker Desktop for Mac**
+   - Download from [docker.com](https://www.docker.com/products/docker-desktop/)
+   - For Apple Silicon (M1/M2/M3): Download the Apple chip version
+   - For Intel Macs: Download the Intel chip version
+
+2. **Verify Docker is running**
+
+   ```bash
+   docker --version
+   docker compose version
+   ```
+
+#### Running the Server
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/aruba-noc-mcp-server.git
+cd aruba-noc-mcp-server
+
+# Run the deployment script
+./deploy.sh
+```
+
+The interactive script will guide you through:
+
+1. Selecting your Aruba Central region
+2. Entering your API credentials
+3. Building and starting the container
+
+#### Performance Tips for macOS
+
+| Tip | Benefit |
+|-----|---------|
+| Enable VirtioFS in Docker Desktop settings | 2-3x faster file sync |
+| Use Rosetta emulation for Apple Silicon | Better compatibility with x86 images |
+| Allocate sufficient resources in Docker Desktop | Prevents slow builds |
+
+**Docker Desktop Settings (Recommended for development):**
+
+- CPUs: 4+
+- Memory: 4GB+
+- Enable "Use Rosetta for x86/amd64 emulation" (Apple Silicon only)
+
+---
+
 ## Project Structure
 
 ```
