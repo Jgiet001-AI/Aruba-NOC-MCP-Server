@@ -35,7 +35,6 @@ async def handle_get_client_trends(args: dict[str, Any]) -> list[TextContent]:
 
     # Step 3: Extract trend data
     trends = data.get("trends", [])
-    data.get("summary", {})
 
     # Calculate statistics from trends
     if trends:

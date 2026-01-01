@@ -49,6 +49,8 @@ The interactive deployment script will:
 | APAC-1 | in.api.central.arubanetworks.com |
 | APAC-EAST1 | jp1.api.central.arubanetworks.com |
 | APAC-SOUTH1 | au1.api.central.arubanetworks.com |
+| **China** | |
+| China-1 | cn1.api.central.arubanetworks.com |
 
 ## Platform-Specific Setup
 
@@ -81,7 +83,7 @@ The interactive deployment script will:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/aruba-noc-mcp-server.git
+git clone https://github.com/Jgiet001-AI/Aruba-NOC-MCP-Server.git
 cd aruba-noc-mcp-server
 
 # Run the deployment script
@@ -141,7 +143,7 @@ processors=2
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/aruba-noc-mcp-server.git
+git clone https://github.com/Jgiet001-AI/Aruba-NOC-MCP-Server.git
 cd aruba-noc-mcp-server
 
 # Run the deployment script
@@ -203,7 +205,7 @@ aruba-noc-mcp-server/
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/yourusername/aruba-noc-mcp-server.git
+   git clone https://github.com/Jgiet001-AI/Aruba-NOC-MCP-Server.git
    cd aruba-noc-mcp-server
    ```
 
