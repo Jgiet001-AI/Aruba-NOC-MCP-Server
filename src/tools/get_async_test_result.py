@@ -49,14 +49,18 @@ async def handle_get_async_test_result(args: dict[str, Any]) -> list[TextContent
 
     # Step 4: Format response based on status with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Test type": test_type,
-        "Status": status,
-        "Target": target,
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Test type": test_type,
+                "Status": status,
+                "Target": target,
+            }
+        )
+    )
+
     if status == "IN_PROGRESS":
         progress_pct = data.get("progressPercent", 0)
         eta = data.get("estimatedCompletionTime", "Unknown")
@@ -87,7 +91,9 @@ async def handle_get_async_test_result(args: dict[str, Any]) -> list[TextContent
             summary_parts.append("\n[DATA] Results:")
             summary_parts.append(f"  [PKT] Sent: {packets_sent} packets | Received: {packets_received} packets")
             summary_parts.append(f"  [LOSS] Packet Loss: {packet_loss}%")
-            summary_parts.append(f"  [LAT] Latency - Min: {min_latency}ms | Avg: {avg_latency}ms | Max: {max_latency}ms")
+            summary_parts.append(
+                f"  [LAT] Latency - Min: {min_latency}ms | Avg: {avg_latency}ms | Max: {max_latency}ms"
+            )
 
             # Health assessment
             if packet_loss == 0 and avg_latency < 50:
@@ -141,18 +147,25 @@ async def handle_get_async_test_result(args: dict[str, Any]) -> list[TextContent
         summary_parts.append(f"\n[--] Unknown Status: {status}")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Status": status,
-        "Test type": test_type,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Status": status,
+                "Test type": test_type,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 5: Store facts and return summary (NO raw JSON)
-    store_facts("get_async_test_result", {
-        "Status": status,
-        "Test type": test_type,
-        "Target": target,
-    })
-    
+    store_facts(
+        "get_async_test_result",
+        {
+            "Status": status,
+            "Test type": test_type,
+            "Target": target,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

@@ -206,10 +206,12 @@ class TestClientsHandlerPatterns:
         with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_clients_data
 
-            await handle_list_all_clients({
-                "site_id": "test-site",
-                "serial_number": "SN123",
-            })
+            await handle_list_all_clients(
+                {
+                    "site_id": "test-site",
+                    "serial_number": "SN123",
+                }
+            )
 
             call_args = mock_api.call_args
             params = call_args[1]["params"]
@@ -451,9 +453,7 @@ class TestEmptyResponsePatterns:
         from src.tools.gateways import handle_list_gateways
 
         all_online_data = {
-            "items": [
-                {"deviceName": "GW-01", "status": "ONLINE", "deployment": "Clustered", "model": "9004"}
-            ],
+            "items": [{"deviceName": "GW-01", "status": "ONLINE", "deployment": "Clustered", "model": "9004"}],
             "total": 1,
         }
 

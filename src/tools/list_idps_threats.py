@@ -13,6 +13,7 @@ from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
+
 async def handle_list_idps_threats(args: dict[str, Any]) -> list[TextContent]:
     """Tool 27: List IDPS Threats - /network-monitoring/v1alpha1/threats"""
 
@@ -31,20 +32,14 @@ async def handle_list_idps_threats(args: dict[str, Any]) -> list[TextContent]:
         params["limit"] = args["limit"]
 
     # Step 2: Call Aruba API
-    data = await call_aruba_api(
-        "/network-monitoring/v1alpha1/threats",
-        params=params
-    )
+    data = await call_aruba_api("/network-monitoring/v1alpha1/threats", params=params)
 
     # Step 3: Extract threat data
     threats = data.get("items", [])
     total = data.get("total", len(threats))
 
     if not threats:
-        return [TextContent(
-            type="text",
-            text="[OK] No security threats detected in the specified time period."
-        )]
+        return [TextContent(type="text", text="[OK] No security threats detected in the specified time period.")]
 
     # Step 4: Analyze threats
     by_severity = {}
@@ -67,15 +62,19 @@ async def handle_list_idps_threats(args: dict[str, Any]) -> list[TextContent]:
 
     # Step 5: Create threat summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total threats": f"{total} threats",
-        "Critical": f"{by_severity.get('CRITICAL', 0)} threats",
-        "High": f"{by_severity.get('HIGH', 0)} threats",
-        "Blocked": f"{by_action.get('BLOCKED', 0)} threats",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total threats": f"{total} threats",
+                "Critical": f"{by_severity.get('CRITICAL', 0)} threats",
+                "High": f"{by_severity.get('HIGH', 0)} threats",
+                "Blocked": f"{by_action.get('BLOCKED', 0)} threats",
+            }
+        )
+    )
+
     summary_parts.append("\n[SEC] Security Threat Report")
     summary_parts.append(f"\n[STATS] Total Threats: {total} (showing {len(threats)})")
 
@@ -85,12 +84,7 @@ async def handle_list_idps_threats(args: dict[str, Any]) -> list[TextContent]:
     for sev in severity_order:
         count = by_severity.get(sev, 0)
         if count > 0:
-            label = {
-                "CRITICAL": "[CRIT]",
-                "HIGH": "[HIGH]",
-                "MEDIUM": "[MED]",
-                "LOW": "[LOW]"
-            }.get(sev, "[--]")
+            label = {"CRITICAL": "[CRIT]", "HIGH": "[HIGH]", "MEDIUM": "[MED]", "LOW": "[LOW]"}.get(sev, "[--]")
             summary_parts.append(f"  {label} {sev}: {count} threats")
 
     # Type breakdown
@@ -101,11 +95,7 @@ async def handle_list_idps_threats(args: dict[str, Any]) -> list[TextContent]:
     # Action breakdown
     summary_parts.append("\n[ACT] Mitigation Actions:")
     for action, count in by_action.items():
-        action_label = {
-            "BLOCKED": "[BLOCKED]",
-            "ALLOWED": "[ALLOWED]",
-            "LOGGED": "[LOGGED]"
-        }.get(action, "[--]")
+        action_label = {"BLOCKED": "[BLOCKED]", "ALLOWED": "[ALLOWED]", "LOGGED": "[LOGGED]"}.get(action, "[--]")
         summary_parts.append(f"  {action_label} {action}: {count} threats")
 
     # Recent critical/high threats
@@ -148,21 +138,28 @@ async def handle_list_idps_threats(args: dict[str, Any]) -> list[TextContent]:
             summary_parts.append(f"  [WARN] Review mitigation policies - only {block_rate:.1f}% blocked")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total threats": total,
-        "Critical": critical_count,
-        "High": high_count,
-        "Blocked": blocked_count,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total threats": total,
+                "Critical": critical_count,
+                "High": high_count,
+                "Blocked": blocked_count,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("list_idps_threats", {
-        "Total threats": total,
-        "Critical": critical_count,
-        "High": high_count,
-        "Blocked": blocked_count,
-    })
-    
+    store_facts(
+        "list_idps_threats",
+        {
+            "Total threats": total,
+            "Critical": critical_count,
+            "High": high_count,
+            "Blocked": blocked_count,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

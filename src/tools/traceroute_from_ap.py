@@ -52,13 +52,17 @@ async def handle_traceroute_from_ap(args: dict[str, Any]) -> list[TextContent]:
 
     # Step 5: Create response with verification guardrails
     summary_parts = []
-    
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Task ID": task_id,
-        "Status": status,
-        "Target": target,
-    }))
-    
+
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Task ID": task_id,
+                "Status": status,
+                "Target": target,
+            }
+        )
+    )
+
     summary_parts.append("\n[TRACE] Traceroute Test Initiated")
     summary_parts.append(f"\n[LOC] From: {ap_name} ({serial})")
     summary_parts.append(f"[TRACE] To: {target}")
@@ -68,18 +72,25 @@ async def handle_traceroute_from_ap(args: dict[str, Any]) -> list[TextContent]:
     summary_parts.append("\n[INFO] This is an async operation. Poll for results using:")
     summary_parts.append(f"   get_async_test_result(task_id: '{task_id}')")
     summary_parts.append("\n[INFO] Traceroute may take 30-60 seconds to complete depending on path length.")
-    
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Task ID": task_id,
-        "Status": status,
-    }))
+
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Task ID": task_id,
+                "Status": status,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
-    
-    store_facts("traceroute_from_ap", {
-        "Task ID": task_id,
-        "Status": status,
-        "Target": target,
-    })
+
+    store_facts(
+        "traceroute_from_ap",
+        {
+            "Task ID": task_id,
+            "Status": status,
+            "Target": target,
+        },
+    )
 
     return [TextContent(type="text", text=summary)]

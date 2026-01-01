@@ -59,12 +59,16 @@ async def handle_get_ap_details(args: dict[str, Any]) -> list[TextContent]:
     summary_parts = []
 
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "AP Name": device_name,
-        "Serial": serial_number,
-        "Status": status,
-        "Connected clients": f"{client_count} clients",
-    }))
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "AP Name": device_name,
+                "Serial": serial_number,
+                "Status": status,
+                "Connected clients": f"{client_count} clients",
+            }
+        )
+    )
 
     status_label = "[UP]" if status == "ONLINE" else "[DN]"
 
@@ -101,21 +105,28 @@ async def handle_get_ap_details(args: dict[str, Any]) -> list[TextContent]:
         summary_parts.append(f"[WARN] High Client Load: {client_count} clients")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "AP Name": device_name,
-        "Status": status,
-        "Clients": client_count,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "AP Name": device_name,
+                "Status": status,
+                "Clients": client_count,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 5: Store facts and return summary (NO raw JSON)
-    store_facts("get_ap_details", {
-        "AP Name": device_name,
-        "Serial": serial_number,
-        "Status": status,
-        "Connected clients": client_count,
-        "Site": site_name,
-    })
+    store_facts(
+        "get_ap_details",
+        {
+            "AP Name": device_name,
+            "Serial": serial_number,
+            "Status": status,
+            "Connected clients": client_count,
+            "Site": site_name,
+        },
+    )
 
     return [TextContent(type="text", text=summary)]

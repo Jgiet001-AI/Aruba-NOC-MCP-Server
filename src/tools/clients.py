@@ -81,15 +81,19 @@ async def handle_list_all_clients(args: dict[str, Any]) -> list[TextContent]:
 
     # Step 5: Create human-readable summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total clients": f"{total} clients",
-        "Showing in response": f"{count} clients",
-        "Wireless clients": f"{by_type.get('Wireless', 0)} clients",
-        "Wired clients": f"{by_type.get('Wired', 0)} clients",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total clients": f"{total} clients",
+                "Showing in response": f"{count} clients",
+                "Wireless clients": f"{by_type.get('Wireless', 0)} clients",
+                "Wired clients": f"{by_type.get('Wired', 0)} clients",
+            }
+        )
+    )
+
     summary_parts.append("\n**Network Clients Overview**")
     summary_parts.append(f"Total clients: {total} (showing {count})\n")
 
@@ -122,21 +126,28 @@ async def handle_list_all_clients(args: dict[str, Any]) -> list[TextContent]:
         summary_parts.append("\n[MORE] Results available (use next cursor)")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total clients": total,
-        "Wireless": by_type.get('Wireless', 0),
-        "Wired": by_type.get('Wired', 0),
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total clients": total,
+                "Wireless": by_type.get("Wireless", 0),
+                "Wired": by_type.get("Wired", 0),
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("list_all_clients", {
-        "Total clients": total,
-        "Wireless clients": by_type.get('Wireless', 0),
-        "Wired clients": by_type.get('Wired', 0),
-        "Good experience": by_experience.get('Good', 0),
-        "Poor experience": by_experience.get('Poor', 0),
-    })
-    
+    store_facts(
+        "list_all_clients",
+        {
+            "Total clients": total,
+            "Wireless clients": by_type.get("Wireless", 0),
+            "Wired clients": by_type.get("Wired", 0),
+            "Good experience": by_experience.get("Good", 0),
+            "Poor experience": by_experience.get("Poor", 0),
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

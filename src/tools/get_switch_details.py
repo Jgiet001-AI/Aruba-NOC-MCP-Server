@@ -53,12 +53,16 @@ async def handle_get_switch_details(args: dict[str, Any]) -> list[TextContent]:
     summary_parts = []
 
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Switch Name": device_name,
-        "Serial": serial,
-        "Status": status,
-        "Total ports": f"{port_count} ports",
-    }))
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Switch Name": device_name,
+                "Serial": serial,
+                "Status": status,
+                "Total ports": f"{port_count} ports",
+            }
+        )
+    )
 
     status_label = "[UP]" if status == "ONLINE" else "[DN]"
 
@@ -81,21 +85,28 @@ async def handle_get_switch_details(args: dict[str, Any]) -> list[TextContent]:
         summary_parts.append(f"[WARN] High Memory: {mem_util}%")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Switch": device_name,
-        "Status": status,
-        "Ports": port_count,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Switch": device_name,
+                "Status": status,
+                "Ports": port_count,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 5: Store facts and return summary (NO raw JSON)
-    store_facts("get_switch_details", {
-        "Switch Name": device_name,
-        "Serial": serial,
-        "Status": status,
-        "Total ports": port_count,
-        "Site": site_name,
-    })
+    store_facts(
+        "get_switch_details",
+        {
+            "Switch Name": device_name,
+            "Serial": serial,
+            "Status": status,
+            "Total ports": port_count,
+            "Site": site_name,
+        },
+    )
 
     return [TextContent(type="text", text=summary)]

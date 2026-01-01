@@ -9,7 +9,7 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_bytes, VerificationGuards
+from src.tools.base import VerificationGuards, format_bytes
 from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
@@ -51,14 +51,18 @@ async def handle_get_gateway_uplinks(args: dict[str, Any]) -> list[TextContent]:
 
     # Step 5: Create uplink summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total uplinks": f"{len(uplinks)} uplinks",
-        "Uplinks UP": f"{up_count} uplinks",
-        "Uplinks DOWN": f"{down_count} uplinks",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total uplinks": f"{len(uplinks)} uplinks",
+                "Uplinks UP": f"{up_count} uplinks",
+                "Uplinks DOWN": f"{down_count} uplinks",
+            }
+        )
+    )
+
     summary_parts.append(f"\n[NET] WAN Uplinks: {gateway_name}")
     summary_parts.append(f"\n[STATS] Total: {len(uplinks)} uplinks | [UP] {up_count} up | [DN] {down_count} down")
 
@@ -130,20 +134,27 @@ async def handle_get_gateway_uplinks(args: dict[str, Any]) -> list[TextContent]:
             summary_parts.append("  [WARN] Only one uplink active - no failover available")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total uplinks": len(uplinks),
-        "Uplinks UP": up_count,
-        "Uplinks DOWN": down_count,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total uplinks": len(uplinks),
+                "Uplinks UP": up_count,
+                "Uplinks DOWN": down_count,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("get_gateway_uplinks", {
-        "Gateway": gateway_name,
-        "Total uplinks": len(uplinks),
-        "Uplinks UP": up_count,
-        "Uplinks DOWN": down_count,
-    })
-    
+    store_facts(
+        "get_gateway_uplinks",
+        {
+            "Gateway": gateway_name,
+            "Total uplinks": len(uplinks),
+            "Uplinks UP": up_count,
+            "Uplinks DOWN": down_count,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

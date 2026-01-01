@@ -8,10 +8,11 @@ from typing import Any
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_bytes, VerificationGuards
+from src.tools.base import VerificationGuards, format_bytes
 from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
+
 
 async def handle_get_top_clients_by_usage(args: dict[str, Any]) -> list[TextContent]:
     """Tool 14: Get Top Clients by Usage - /network-monitoring/v1alpha1/clients/usage/topn"""
@@ -27,10 +28,7 @@ async def handle_get_top_clients_by_usage(args: dict[str, Any]) -> list[TextCont
         params["connection-type"] = args["connection_type"]
 
     # Step 2: Call Aruba API
-    data = await call_aruba_api(
-        "/network-monitoring/v1alpha1/clients/usage/topn",
-        params=params
-    )
+    data = await call_aruba_api("/network-monitoring/v1alpha1/clients/usage/topn", params=params)
 
     # Step 3: Extract top clients
     top_clients = data.get("items", [])
@@ -41,13 +39,17 @@ async def handle_get_top_clients_by_usage(args: dict[str, Any]) -> list[TextCont
 
     # Step 4: Create ranked summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Top clients shown": f"{len(top_clients)} clients",
-        "Combined bandwidth": format_bytes(total_bandwidth),
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Top clients shown": f"{len(top_clients)} clients",
+                "Combined bandwidth": format_bytes(total_bandwidth),
+            }
+        )
+    )
+
     summary_parts.append(f"\n[CLI] Top {len(top_clients)} Bandwidth Consumers ({time_range})")
     summary_parts.append(f"\n[STATS] Combined Usage: {format_bytes(total_bandwidth)}")
     summary_parts.append("\n[RANK] Rankings:")
@@ -77,17 +79,24 @@ async def handle_get_top_clients_by_usage(args: dict[str, Any]) -> list[TextCont
             summary_parts.append("    [WARN] Excessive usage - investigate for policy violations")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Top clients": len(top_clients),
-        "Combined bandwidth": format_bytes(total_bandwidth),
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Top clients": len(top_clients),
+                "Combined bandwidth": format_bytes(total_bandwidth),
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 5: Store facts and return summary (NO raw JSON)
-    store_facts("get_top_clients_by_usage", {
-        "Top clients": len(top_clients),
-        "Combined bandwidth": format_bytes(total_bandwidth),
-    })
-    
+    store_facts(
+        "get_top_clients_by_usage",
+        {
+            "Top clients": len(top_clients),
+            "Combined bandwidth": format_bytes(total_bandwidth),
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

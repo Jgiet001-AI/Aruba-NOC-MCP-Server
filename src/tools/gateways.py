@@ -79,14 +79,18 @@ async def handle_list_gateways(args: dict[str, Any]) -> list[TextContent]:
 
     # Step 5: Create human-readable summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total gateways": f"{total} gateways",
-        "Online gateways": f"{by_status.get('ONLINE', 0)} gateways",
-        "Offline gateways": f"{by_status.get('OFFLINE', 0)} gateways",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total gateways": f"{total} gateways",
+                "Online gateways": f"{by_status.get('ONLINE', 0)} gateways",
+                "Offline gateways": f"{by_status.get('OFFLINE', 0)} gateways",
+            }
+        )
+    )
+
     summary_parts.append("\n**Gateway Inventory Overview**")
     summary_parts.append(f"Total gateways: {total} (showing {count})\n")
 
@@ -125,19 +129,26 @@ async def handle_list_gateways(args: dict[str, Any]) -> list[TextContent]:
         summary_parts.append("\n[MORE] Results available (use next cursor)")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total gateways": total,
-        "Online": online,
-        "Offline": offline,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total gateways": total,
+                "Online": online,
+                "Offline": offline,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("list_gateways", {
-        "Total gateways": total,
-        "Online gateways": online,
-        "Offline gateways": offline,
-    })
-    
+    store_facts(
+        "list_gateways",
+        {
+            "Total gateways": total,
+            "Online gateways": online,
+            "Offline gateways": offline,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

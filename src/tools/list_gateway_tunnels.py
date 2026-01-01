@@ -61,14 +61,18 @@ async def handle_list_gateway_tunnels(args: dict[str, Any]) -> list[TextContent]
     down_count = by_status.get("DOWN", 0)
 
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total tunnels": f"{total} tunnels",
-        "Tunnels UP": f"{up_count} tunnels",
-        "Tunnels DOWN": f"{down_count} tunnels",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total tunnels": f"{total} tunnels",
+                "Tunnels UP": f"{up_count} tunnels",
+                "Tunnels DOWN": f"{down_count} tunnels",
+            }
+        )
+    )
+
     summary_parts.append(f"\n[VPN] VPN Tunnels: {cluster_name}")
     summary_parts.append(f"\n[STATS] Total: {total} tunnels | [UP] {up_count} up | [DN] {down_count} down")
 
@@ -121,20 +125,27 @@ async def handle_list_gateway_tunnels(args: dict[str, Any]) -> list[TextContent]
         summary_parts.append(f"\n[WARN] {down_count}/{total} tunnels need attention")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total tunnels": total,
-        "Tunnels UP": up_count,
-        "Tunnels DOWN": down_count,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total tunnels": total,
+                "Tunnels UP": up_count,
+                "Tunnels DOWN": down_count,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("list_gateway_tunnels", {
-        "Cluster": cluster_name,
-        "Total tunnels": total,
-        "Tunnels UP": up_count,
-        "Tunnels DOWN": down_count,
-    })
-    
+    store_facts(
+        "list_gateway_tunnels",
+        {
+            "Cluster": cluster_name,
+            "Total tunnels": total,
+            "Tunnels UP": up_count,
+            "Tunnels DOWN": down_count,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

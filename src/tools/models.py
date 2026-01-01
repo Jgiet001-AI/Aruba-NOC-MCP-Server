@@ -56,15 +56,12 @@ class GetAPDetailsInput(SerialNumberInput):
     """Input for get_ap_details tool."""
 
 
-
 class GetSwitchDetailsInput(SerialInput):
     """Input for get_switch_details tool."""
 
 
-
 class GetGatewayDetailsInput(SerialNumberInput):
     """Input for get_gateway_details tool."""
-
 
 
 class GetSiteDetailsInput(BaseModel):
@@ -94,7 +91,6 @@ class GetDeviceListInput(PaginatedInput):
     """Input for get_device_list tool."""
 
 
-
 class ListAllClientsInput(PaginatedInput):
     """Input for list_all_clients tool."""
 
@@ -108,7 +104,6 @@ class ListGatewaysInput(PaginatedInput):
     """Input for list_gateways tool."""
 
 
-
 class GetFirmwareDetailsInput(PaginatedInput):
     """Input for get_firmware_details tool."""
 
@@ -117,7 +112,6 @@ class GetFirmwareDetailsInput(PaginatedInput):
 
 class GetDeviceInventoryInput(PaginatedInput):
     """Input for get_device_inventory tool."""
-
 
 
 class ListWLANsInput(BaseModel):
@@ -138,7 +132,6 @@ class GetTenantDeviceHealthInput(BaseModel):
     """Input for get_tenant_device_health tool (no parameters)."""
 
 
-
 # =============================================================================
 # RADIO & PERFORMANCE TOOLS
 # =============================================================================
@@ -146,7 +139,6 @@ class GetTenantDeviceHealthInput(BaseModel):
 
 class GetAPRadiosInput(SerialInput):
     """Input for get_ap_radios tool."""
-
 
 
 class GetAPCPUUtilizationInput(SerialInput):
@@ -186,10 +178,8 @@ class GetGatewayUplinksInput(SerialNumberInput):
     """Input for get_gateway_uplinks tool."""
 
 
-
 class ListGatewayTunnelsInput(SerialNumberInput):
     """Input for list_gateway_tunnels tool."""
-
 
 
 # =============================================================================
@@ -201,10 +191,8 @@ class GetSwitchInterfacesInput(SerialInput):
     """Input for get_switch_interfaces tool."""
 
 
-
 class GetStackMembersInput(SerialInput):
     """Input for get_stack_members tool."""
-
 
 
 # =============================================================================
@@ -218,9 +206,7 @@ class GetClientTrendsInput(BaseModel):
     site_id: str | None = Field(default=None, description="Filter by site ID")
     start_time: str | None = Field(default=None, description="Start time (RFC 3339)")
     end_time: str | None = Field(default=None, description="End time (RFC 3339)")
-    interval: Literal["5min", "15min", "1hour", "1day"] = Field(
-        default="1hour", description="Data interval"
-    )
+    interval: Literal["5min", "15min", "1hour", "1day"] = Field(default="1hour", description="Data interval")
 
 
 class GetTopAPsByBandwidthInput(BaseModel):
@@ -238,12 +224,8 @@ class GetTopClientsByUsageInput(BaseModel):
 
     site_id: str | None = Field(default=None, description="Filter by site ID")
     limit: int = Field(default=100, ge=1, le=100, description="Number of top clients")
-    time_range: Literal["1hour", "24hours", "7days"] = Field(
-        default="24hours", description="Analysis time period"
-    )
-    connection_type: Literal["WIRELESS", "WIRED", "ALL"] = Field(
-        default="ALL", description="Connection type filter"
-    )
+    time_range: Literal["1hour", "24hours", "7days"] = Field(default="24hours", description="Analysis time period")
+    connection_type: Literal["WIRELESS", "WIRED", "ALL"] = Field(default="ALL", description="Connection type filter")
 
 
 # =============================================================================

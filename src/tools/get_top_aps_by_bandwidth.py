@@ -8,10 +8,11 @@ from typing import Any
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_bytes, VerificationGuards
+from src.tools.base import VerificationGuards, format_bytes
 from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
+
 
 async def handle_get_top_aps_by_bandwidth(args: dict[str, Any]) -> list[TextContent]:
     """Tool 13: Get Top APs by Bandwidth - /network-monitoring/v1alpha1/top-aps-by-wireless-usage"""
@@ -25,10 +26,7 @@ async def handle_get_top_aps_by_bandwidth(args: dict[str, Any]) -> list[TextCont
     params["time-range"] = args.get("time_range", "24hours")
 
     # Step 2: Call Aruba API
-    data = await call_aruba_api(
-        "/network-monitoring/v1alpha1/top-aps-by-wireless-usage",
-        params=params
-    )
+    data = await call_aruba_api("/network-monitoring/v1alpha1/top-aps-by-wireless-usage", params=params)
 
     # Step 3: Extract top APs
     top_aps = data.get("items", [])
@@ -40,14 +38,18 @@ async def handle_get_top_aps_by_bandwidth(args: dict[str, Any]) -> list[TextCont
 
     # Step 4: Create ranked summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total APs": f"{len(top_aps)} APs",
-        "Total bandwidth": format_bytes(total_bandwidth),
-        "Total clients": f"{total_clients} clients",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total APs": f"{len(top_aps)} APs",
+                "Total bandwidth": format_bytes(total_bandwidth),
+                "Total clients": f"{total_clients} clients",
+            }
+        )
+    )
+
     summary_parts.append(f"\n[STATS] Top {len(top_aps)} APs by Bandwidth Usage ({time_range})")
     summary_parts.append(f"\n[TREND] Total: {format_bytes(total_bandwidth)} | [CLI] {total_clients} clients")
     summary_parts.append("\n[RANK] Rankings:")
@@ -76,19 +78,26 @@ async def handle_get_top_aps_by_bandwidth(args: dict[str, Any]) -> list[TextCont
             summary_parts.append("    [WARN] High client count - may need load balancing")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total APs": len(top_aps),
-        "Total bandwidth": format_bytes(total_bandwidth),
-        "Total clients": total_clients,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total APs": len(top_aps),
+                "Total bandwidth": format_bytes(total_bandwidth),
+                "Total clients": total_clients,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 5: Store facts and return summary (NO raw JSON)
-    store_facts("get_top_aps_by_bandwidth", {
-        "Total APs": len(top_aps),
-        "Total bandwidth": format_bytes(total_bandwidth),
-        "Total clients": total_clients,
-    })
-    
+    store_facts(
+        "get_top_aps_by_bandwidth",
+        {
+            "Total APs": len(top_aps),
+            "Total bandwidth": format_bytes(total_bandwidth),
+            "Total clients": total_clients,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

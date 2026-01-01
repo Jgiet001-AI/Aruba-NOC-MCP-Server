@@ -2,7 +2,6 @@
 Tests for base.py shared utilities
 """
 
-
 from src.tools.base import (
     StatusLabels,
     build_error_response,

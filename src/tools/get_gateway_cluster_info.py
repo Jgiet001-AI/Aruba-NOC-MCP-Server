@@ -9,7 +9,7 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_uptime, VerificationGuards
+from src.tools.base import VerificationGuards, format_uptime
 from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
@@ -59,14 +59,18 @@ async def handle_get_gateway_cluster_info(args: dict[str, Any]) -> list[TextCont
     ha_label = "[OK]" if ha_enabled else "[DN]"
 
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total members": f"{len(members)} members",
-        "Status": cluster_status,
-        "HA enabled": "Yes" if ha_enabled else "No",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total members": f"{len(members)} members",
+                "Status": cluster_status,
+                "HA enabled": "Yes" if ha_enabled else "No",
+            }
+        )
+    )
+
     summary_parts.append(f"\n[CLUSTER] Gateway Cluster: {cluster_name}")
     summary_parts.append(f"\n{status_label} Status: {cluster_status}")
     summary_parts.append(f"{ha_label} High Availability: {'Enabled' if ha_enabled else 'Disabled'}")
@@ -131,20 +135,27 @@ async def handle_get_gateway_cluster_info(args: dict[str, Any]) -> list[TextCont
         summary_parts.append("  [OK] Cluster is healthy and redundant")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total members": len(members),
-        "Status": cluster_status,
-        "HA enabled": "Yes" if ha_enabled else "No",
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total members": len(members),
+                "Status": cluster_status,
+                "HA enabled": "Yes" if ha_enabled else "No",
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 5: Store facts and return summary (NO raw JSON)
-    store_facts("get_gateway_cluster_info", {
-        "Cluster": cluster_name,
-        "Total members": len(members),
-        "Status": cluster_status,
-        "HA enabled": "Yes" if ha_enabled else "No",
-    })
-    
+    store_facts(
+        "get_gateway_cluster_info",
+        {
+            "Cluster": cluster_name,
+            "Total members": len(members),
+            "Status": cluster_status,
+            "HA enabled": "Yes" if ha_enabled else "No",
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

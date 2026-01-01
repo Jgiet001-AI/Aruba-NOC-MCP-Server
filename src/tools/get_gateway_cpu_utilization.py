@@ -57,14 +57,18 @@ async def handle_get_gateway_cpu_utilization(args: dict[str, Any]) -> list[TextC
 
     # Step 5: Create human-readable summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Average CPU": f"{avg_cpu:.1f}%",
-        "Min CPU": f"{min_cpu:.1f}%",
-        "Max CPU": f"{max_cpu:.1f}%",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Average CPU": f"{avg_cpu:.1f}%",
+                "Min CPU": f"{min_cpu:.1f}%",
+                "Max CPU": f"{max_cpu:.1f}%",
+            }
+        )
+    )
+
     summary_parts.append(f"\n[GW] Gateway CPU Utilization: {serial}")
     summary_parts.append(f"\n[STATS] Statistics ({total_samples} samples):")
 
@@ -88,20 +92,27 @@ async def handle_get_gateway_cpu_utilization(args: dict[str, Any]) -> list[TextC
         summary_parts.append("\n[OK] CPU utilization within normal range")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Average CPU": f"{avg_cpu:.1f}%",
-        "Min CPU": f"{min_cpu:.1f}%",
-        "Max CPU": f"{max_cpu:.1f}%",
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Average CPU": f"{avg_cpu:.1f}%",
+                "Min CPU": f"{min_cpu:.1f}%",
+                "Max CPU": f"{max_cpu:.1f}%",
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("get_gateway_cpu_utilization", {
-        "Gateway": serial,
-        "Average CPU": f"{avg_cpu:.1f}%",
-        "Min CPU": f"{min_cpu:.1f}%",
-        "Max CPU": f"{max_cpu:.1f}%",
-    })
-    
+    store_facts(
+        "get_gateway_cpu_utilization",
+        {
+            "Gateway": serial,
+            "Average CPU": f"{avg_cpu:.1f}%",
+            "Min CPU": f"{min_cpu:.1f}%",
+            "Max CPU": f"{max_cpu:.1f}%",
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

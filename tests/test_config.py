@@ -15,12 +15,15 @@ class TestArubaConfig:
 
     def test_config_loads_env_vars(self):
         """Test that config loads environment variables"""
-        with patch.dict(os.environ, {
-            "ARUBA_BASE_URL": "https://test.api.com",
-            "ARUBA_CLIENT_ID": "test_client_id",
-            "ARUBA_CLIENT_SECRET": "test_secret",
-            "ARUBA_ACCESS_TOKEN": "test_token",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARUBA_BASE_URL": "https://test.api.com",
+                "ARUBA_CLIENT_ID": "test_client_id",
+                "ARUBA_CLIENT_SECRET": "test_secret",
+                "ARUBA_ACCESS_TOKEN": "test_token",
+            },
+        ):
             config = ArubaConfig()
             assert config.base_url == "https://test.api.com"
             assert config.client_id == "test_client_id"
@@ -53,10 +56,13 @@ class TestArubaConfig:
     @pytest.mark.asyncio
     async def test_get_access_token_success(self):
         """Test successful token generation"""
-        with patch.dict(os.environ, {
-            "ARUBA_CLIENT_ID": "test_id",
-            "ARUBA_CLIENT_SECRET": "test_secret",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARUBA_CLIENT_ID": "test_id",
+                "ARUBA_CLIENT_SECRET": "test_secret",
+            },
+        ):
             from unittest.mock import MagicMock
 
             config = ArubaConfig()

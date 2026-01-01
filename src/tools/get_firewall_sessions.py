@@ -13,6 +13,7 @@ from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
+
 async def handle_get_firewall_sessions(args: dict[str, Any]) -> list[TextContent]:
     """Tool 28: Get Firewall Sessions - /network-monitoring/v1alpha1/site-firewall-sessions"""
 
@@ -29,20 +30,14 @@ async def handle_get_firewall_sessions(args: dict[str, Any]) -> list[TextContent
         params["limit"] = args["limit"]
 
     # Step 2: Call Aruba API
-    data = await call_aruba_api(
-        "/network-monitoring/v1alpha1/site-firewall-sessions",
-        params=params
-    )
+    data = await call_aruba_api("/network-monitoring/v1alpha1/site-firewall-sessions", params=params)
 
     # Step 3: Extract session data
     sessions = data.get("items", [])
     total = data.get("total", len(sessions))
 
     if not sessions:
-        return [TextContent(
-            type="text",
-            text="[INFO] No firewall sessions found matching the specified criteria."
-        )]
+        return [TextContent(type="text", text="[INFO] No firewall sessions found matching the specified criteria.")]
 
     # Step 4: Analyze sessions
     by_status = {}
@@ -70,35 +65,31 @@ async def handle_get_firewall_sessions(args: dict[str, Any]) -> list[TextContent
 
     # Step 5: Create session summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total sessions": f"{total} sessions",
-        "Active": f"{by_status.get('ACTIVE', 0)} sessions",
-        "Blocked": f"{len(blocked_sessions)} sessions",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total sessions": f"{total} sessions",
+                "Active": f"{by_status.get('ACTIVE', 0)} sessions",
+                "Blocked": f"{len(blocked_sessions)} sessions",
+            }
+        )
+    )
+
     summary_parts.append("\n[FW] Firewall Session Report")
     summary_parts.append(f"\n[STATS] Total Sessions: {total} (showing {len(sessions)})")
 
     # Status breakdown
     summary_parts.append("\n[STATUS] By Status (session counts):")
     for status, count in by_status.items():
-        status_label = {
-            "ACTIVE": "[OK]",
-            "CLOSED": "[CLOSED]",
-            "BLOCKED": "[BLOCKED]"
-        }.get(status, "[--]")
+        status_label = {"ACTIVE": "[OK]", "CLOSED": "[CLOSED]", "BLOCKED": "[BLOCKED]"}.get(status, "[--]")
         summary_parts.append(f"  {status_label} {status}: {count} sessions")
 
     # Protocol breakdown
     summary_parts.append("\n[PROTO] By Protocol:")
     for protocol, count in sorted(by_protocol.items(), key=lambda x: x[1], reverse=True):
-        protocol_label = {
-            "TCP": "[TCP]",
-            "UDP": "[UDP]",
-            "ICMP": "[ICMP]"
-        }.get(protocol, "[NET]")
+        protocol_label = {"TCP": "[TCP]", "UDP": "[UDP]", "ICMP": "[ICMP]"}.get(protocol, "[NET]")
         summary_parts.append(f"  {protocol_label} {protocol}: {count} sessions")
 
     # Top firewall rules
@@ -148,19 +139,26 @@ async def handle_get_firewall_sessions(args: dict[str, Any]) -> list[TextContent
         summary_parts.append("  [INFO] High session count - busy network traffic")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total sessions": total,
-        "Active": active_count,
-        "Blocked": blocked_count,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total sessions": total,
+                "Active": active_count,
+                "Blocked": blocked_count,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("get_firewall_sessions", {
-        "Total sessions": total,
-        "Active": active_count,
-        "Blocked": blocked_count,
-    })
-    
+    store_facts(
+        "get_firewall_sessions",
+        {
+            "Total sessions": total,
+            "Active": active_count,
+            "Blocked": blocked_count,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

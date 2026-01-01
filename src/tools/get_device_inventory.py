@@ -29,10 +29,7 @@ async def handle_get_device_inventory(args: dict[str, Any]) -> list[TextContent]
         params["next"] = args["next"]
 
     # Step 2: Call Aruba API
-    data = await call_aruba_api(
-        "/network-monitoring/v1alpha1/device-inventory",
-        params=params
-    )
+    data = await call_aruba_api("/network-monitoring/v1alpha1/device-inventory", params=params)
 
     # Step 3: Extract inventory data
     total = data.get("total", 0)
@@ -55,40 +52,51 @@ async def handle_get_device_inventory(args: dict[str, Any]) -> list[TextContent]
 
     # Step 5: Create summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total devices": f"{total} devices",
-        "Showing in response": f"{count} devices",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total devices": f"{total} devices",
+                "Showing in response": f"{count} devices",
+            }
+        )
+    )
+
     summary_parts.append(f"\n[INV] Hardware Inventory: {total} devices (showing {count})")
-    
+
     summary_parts.append("\n[MODEL] By Model (device counts):")
     for model, model_count in sorted(by_model.items(), key=lambda x: x[1], reverse=True)[:5]:
         summary_parts.append(f"  * {model}: {model_count} devices")
-    
-    summary_parts.append(f"\n[TYPE] By Type:")
+
+    summary_parts.append("\n[TYPE] By Type:")
     for dtype, type_count in sorted(by_type.items()):
         summary_parts.append(f"  * {dtype}: {type_count} devices")
-    
-    summary_parts.append(f"\n[SUB] By Subscription:")
+
+    summary_parts.append("\n[SUB] By Subscription:")
     for sub, sub_count in sorted(by_subscription.items()):
         summary_parts.append(f"  * {sub}: {sub_count} devices")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total devices": total,
-        "Showing": count,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total devices": total,
+                "Showing": count,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("get_device_inventory", {
-        "Total devices": total,
-        "By type": by_type,
-        "By model (top 5)": dict(sorted(by_model.items(), key=lambda x: x[1], reverse=True)[:5]),
-    })
-    
+    store_facts(
+        "get_device_inventory",
+        {
+            "Total devices": total,
+            "By type": by_type,
+            "By model (top 5)": dict(sorted(by_model.items(), key=lambda x: x[1], reverse=True)[:5]),
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

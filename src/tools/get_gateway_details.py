@@ -71,13 +71,17 @@ async def handle_get_gateway_details(args: dict[str, Any]) -> list[TextContent]:
     summary_parts = []
 
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Gateway Name": device_name,
-        "Serial": serial_number,
-        "Status": status,
-        "Active tunnels": f"{tunnel_count} tunnels",
-        "Uplinks": f"{uplinks_up}/{uplinks_total} up",
-    }))
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Gateway Name": device_name,
+                "Serial": serial_number,
+                "Status": status,
+                "Active tunnels": f"{tunnel_count} tunnels",
+                "Uplinks": f"{uplinks_up}/{uplinks_total} up",
+            }
+        )
+    )
 
     status_label = "[UP]" if status == "ONLINE" else "[DN]"
 
@@ -129,22 +133,29 @@ async def handle_get_gateway_details(args: dict[str, Any]) -> list[TextContent]:
         summary_parts.append("[CRIT] All uplinks down - no WAN connectivity")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Gateway": device_name,
-        "Status": status,
-        "Tunnels": tunnel_count,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Gateway": device_name,
+                "Status": status,
+                "Tunnels": tunnel_count,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 5: Store facts and return summary (NO raw JSON)
-    store_facts("get_gateway_details", {
-        "Gateway Name": device_name,
-        "Serial": serial_number,
-        "Status": status,
-        "Active tunnels": tunnel_count,
-        "Uplinks up": uplinks_up,
-        "Site": site_name,
-    })
+    store_facts(
+        "get_gateway_details",
+        {
+            "Gateway Name": device_name,
+            "Serial": serial_number,
+            "Status": status,
+            "Active tunnels": tunnel_count,
+            "Uplinks up": uplinks_up,
+            "Site": site_name,
+        },
+    )
 
     return [TextContent(type="text", text=summary)]

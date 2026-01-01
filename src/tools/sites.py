@@ -59,7 +59,7 @@ async def handle_get_sites_health(args: dict[str, Any]) -> list[TextContent]:
         site_devices = site.get("deviceCount", 0)
         total_devices += site_devices
         total_clients += site.get("clientCount", 0)
-        
+
         # Track device status
         site_online = site.get("onlineDevices", site_devices)
         site_offline = site.get("offlineDevices", 0)
@@ -86,16 +86,20 @@ async def handle_get_sites_health(args: dict[str, Any]) -> list[TextContent]:
 
     # Step 5: Create human-readable summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total sites": f"{total_sites} sites",
-        "Total devices": f"{total_devices} devices",
-        "Online devices": f"{total_online} devices",
-        "Offline devices": f"{total_offline} devices",
-        "Health scores are NOT device counts": "True",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total sites": f"{total_sites} sites",
+                "Total devices": f"{total_devices} devices",
+                "Online devices": f"{total_online} devices",
+                "Offline devices": f"{total_offline} devices",
+                "Health scores are NOT device counts": "True",
+            }
+        )
+    )
+
     summary_parts.append("\n**Network Sites Health Overview**")
     summary_parts.append(f"Total sites analyzed: {total_sites}\n")
 
@@ -127,22 +131,29 @@ async def handle_get_sites_health(args: dict[str, Any]) -> list[TextContent]:
             )
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total sites": total_sites,
-        "Total devices": total_devices,
-        "Offline devices": total_offline,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total sites": total_sites,
+                "Total devices": total_devices,
+                "Offline devices": total_offline,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts for verification and return summary (NO raw JSON)
-    store_facts("get_sites_health", {
-        "Total sites": total_sites,
-        "Total devices": total_devices,
-        "Online devices": total_online,
-        "Offline devices": total_offline,
-        "Total clients": total_clients,
-        "Total alerts": total_alerts,
-    })
-    
+    store_facts(
+        "get_sites_health",
+        {
+            "Total sites": total_sites,
+            "Total devices": total_devices,
+            "Online devices": total_online,
+            "Offline devices": total_offline,
+            "Total clients": total_clients,
+            "Total alerts": total_alerts,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

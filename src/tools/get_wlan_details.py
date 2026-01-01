@@ -9,7 +9,7 @@ import httpx
 from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
-from src.tools.base import format_bytes, VerificationGuards
+from src.tools.base import VerificationGuards, format_bytes
 from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
@@ -54,14 +54,18 @@ async def handle_get_wlan_details(args: dict[str, Any]) -> list[TextContent]:
     status_label = "[UP] ENABLED" if enabled else "[DN] DISABLED"
 
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Status": "Enabled" if enabled else "Disabled",
-        "Security": security_type,
-        "Connected clients": f"{current_clients} clients",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Status": "Enabled" if enabled else "Disabled",
+                "Security": security_type,
+                "Connected clients": f"{current_clients} clients",
+            }
+        )
+    )
+
     summary_parts.append(f"\n[WIFI] WLAN Details: {wlan_name}")
     summary_parts.append(f"\n{status_label}")
     summary_parts.append(f"\nSSID: {ssid}")
@@ -98,20 +102,27 @@ async def handle_get_wlan_details(args: dict[str, Any]) -> list[TextContent]:
         summary_parts.append("  * Consider upgrading to WPA3 for enhanced security")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Status": "Enabled" if enabled else "Disabled",
-        "Security": security_type,
-        "Connected clients": current_clients,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Status": "Enabled" if enabled else "Disabled",
+                "Security": security_type,
+                "Connected clients": current_clients,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 5: Store facts and return summary (NO raw JSON)
-    store_facts("get_wlan_details", {
-        "WLAN": wlan_name,
-        "Status": "Enabled" if enabled else "Disabled",
-        "Security": security_type,
-        "Connected clients": current_clients,
-    })
-    
+    store_facts(
+        "get_wlan_details",
+        {
+            "WLAN": wlan_name,
+            "Status": "Enabled" if enabled else "Disabled",
+            "Security": security_type,
+            "Connected clients": current_clients,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

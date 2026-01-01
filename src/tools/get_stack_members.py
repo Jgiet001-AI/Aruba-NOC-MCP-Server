@@ -66,14 +66,18 @@ async def handle_get_stack_members(args: dict[str, Any]) -> list[TextContent]:
 
     # Step 5: Create stack topology summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total members": f"{total_members} members",
-        "Members UP": f"{up_members} members",
-        "Members DOWN": f"{down_members} members",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total members": f"{total_members} members",
+                "Members UP": f"{up_members} members",
+                "Members DOWN": f"{down_members} members",
+            }
+        )
+    )
+
     summary_parts.append("\n[STACK] Switch Stack Topology")
     summary_parts.append(f"\n[NAME] Stack: {stack_name}")
     summary_parts.append(f"[STATUS] Status: {stack_status}")
@@ -135,20 +139,27 @@ async def handle_get_stack_members(args: dict[str, Any]) -> list[TextContent]:
         summary_parts.append("  [OK] Consistent software version across stack")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total members": total_members,
-        "Members UP": up_members,
-        "Members DOWN": down_members,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total members": total_members,
+                "Members UP": up_members,
+                "Members DOWN": down_members,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("get_stack_members", {
-        "Stack": stack_name,
-        "Total members": total_members,
-        "Members UP": up_members,
-        "Members DOWN": down_members,
-    })
-    
+    store_facts(
+        "get_stack_members",
+        {
+            "Stack": stack_name,
+            "Total members": total_members,
+            "Members UP": up_members,
+            "Members DOWN": down_members,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

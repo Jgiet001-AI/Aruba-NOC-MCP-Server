@@ -47,16 +47,20 @@ async def handle_get_tenant_device_health(args: dict[str, Any]) -> list[TextCont
 
     # Step 3: Create executive summary with verification guardrails
     summary_parts = []
-    
+
     # CRITICAL: Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total devices": f"{total_devices} devices",
-        "Online devices": f"{online_devices} devices",
-        "Offline devices": f"{offline_devices} devices",
-        "Health score": f"{health_score}% (this is a SCORE, not device count)",
-        "Devices in poor health": f"{poor_count} devices (this is device COUNT)",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total devices": f"{total_devices} devices",
+                "Online devices": f"{online_devices} devices",
+                "Offline devices": f"{offline_devices} devices",
+                "Health score": f"{health_score}% (this is a SCORE, not device count)",
+                "Devices in poor health": f"{poor_count} devices (this is device COUNT)",
+            }
+        )
+    )
+
     health_label = {"GOOD": "[OK]", "FAIR": "[WARN]", "POOR": "[CRIT]"}.get(overall_health, "[--]")
 
     summary_parts.append("\n[NET] Organization-Wide Network Health")
@@ -97,24 +101,31 @@ async def handle_get_tenant_device_health(args: dict[str, Any]) -> list[TextCont
         summary_parts.append(f"[WARN] Alert: {offline_devices} devices offline (>{5}%)")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total devices": total_devices,
-        "Online devices": online_devices,
-        "Offline devices": offline_devices,
-        "Poor health devices": poor_count,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total devices": total_devices,
+                "Online devices": online_devices,
+                "Offline devices": offline_devices,
+                "Poor health devices": poor_count,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 4: Store facts and return summary (NO raw JSON)
-    store_facts("get_tenant_device_health", {
-        "Total devices": total_devices,
-        "Online devices": online_devices,
-        "Offline devices": offline_devices,
-        "Health score (%)": health_score,
-        "Poor health devices": poor_count,
-        "Fair health devices": fair_count,
-        "Good health devices": good_count,
-    })
-    
+    store_facts(
+        "get_tenant_device_health",
+        {
+            "Total devices": total_devices,
+            "Online devices": online_devices,
+            "Offline devices": offline_devices,
+            "Health score (%)": health_score,
+            "Poor health devices": poor_count,
+            "Fair health devices": fair_count,
+            "Good health devices": good_count,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

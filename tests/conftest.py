@@ -12,12 +12,15 @@ import pytest
 @pytest.fixture(autouse=True)
 def mock_env_vars():
     """Automatically mock environment variables for all tests."""
-    with patch.dict(os.environ, {
-        "ARUBA_BASE_URL": "https://test.api.central.arubanetworks.com",
-        "ARUBA_CLIENT_ID": "test_client_id",
-        "ARUBA_CLIENT_SECRET": "test_client_secret",
-        "ARUBA_ACCESS_TOKEN": "test_access_token",
-    }):
+    with patch.dict(
+        os.environ,
+        {
+            "ARUBA_BASE_URL": "https://test.api.central.arubanetworks.com",
+            "ARUBA_CLIENT_ID": "test_client_id",
+            "ARUBA_CLIENT_SECRET": "test_client_secret",
+            "ARUBA_ACCESS_TOKEN": "test_access_token",
+        },
+    ):
         yield
 
 

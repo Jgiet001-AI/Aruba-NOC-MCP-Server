@@ -5,7 +5,6 @@ These tests capture the CURRENT WORKING BEHAVIOR before applying lint fixes.
 They serve as a safety net to ensure formatting functions continue to work correctly.
 """
 
-
 # Import directly to avoid broken modules in tools package
 import os
 import sys
@@ -190,47 +189,47 @@ class TestStatusLabelsCompleteness:
     def test_all_category_labels_exist(self):
         """Verify all category labels are defined."""
         # Categories
-        assert hasattr(StatusLabels, 'SEC')
-        assert hasattr(StatusLabels, 'BUG')
-        assert hasattr(StatusLabels, 'FEAT')
-        assert hasattr(StatusLabels, 'HW')
-        assert hasattr(StatusLabels, 'CLI')
-        assert hasattr(StatusLabels, 'VPN')
-        assert hasattr(StatusLabels, 'NET')
+        assert hasattr(StatusLabels, "SEC")
+        assert hasattr(StatusLabels, "BUG")
+        assert hasattr(StatusLabels, "FEAT")
+        assert hasattr(StatusLabels, "HW")
+        assert hasattr(StatusLabels, "CLI")
+        assert hasattr(StatusLabels, "VPN")
+        assert hasattr(StatusLabels, "NET")
 
     def test_all_data_labels_exist(self):
         """Verify data/stats labels are defined."""
-        assert hasattr(StatusLabels, 'STATS')
-        assert hasattr(StatusLabels, 'TREND')
-        assert hasattr(StatusLabels, 'DATA')
-        assert hasattr(StatusLabels, 'RANK')
+        assert hasattr(StatusLabels, "STATS")
+        assert hasattr(StatusLabels, "TREND")
+        assert hasattr(StatusLabels, "DATA")
+        assert hasattr(StatusLabels, "RANK")
 
     def test_all_action_labels_exist(self):
         """Verify action/state labels are defined."""
-        assert hasattr(StatusLabels, 'AVAIL')
-        assert hasattr(StatusLabels, 'REQ')
-        assert hasattr(StatusLabels, 'IDLE')
-        assert hasattr(StatusLabels, 'MORE')
-        assert hasattr(StatusLabels, 'ALERT')
-        assert hasattr(StatusLabels, 'ASYNC')
+        assert hasattr(StatusLabels, "AVAIL")
+        assert hasattr(StatusLabels, "REQ")
+        assert hasattr(StatusLabels, "IDLE")
+        assert hasattr(StatusLabels, "MORE")
+        assert hasattr(StatusLabels, "ALERT")
+        assert hasattr(StatusLabels, "ASYNC")
 
     def test_all_operation_labels_exist(self):
         """Verify operation labels are defined."""
-        assert hasattr(StatusLabels, 'PING')
-        assert hasattr(StatusLabels, 'TRACE')
+        assert hasattr(StatusLabels, "PING")
+        assert hasattr(StatusLabels, "TRACE")
 
     def test_all_labels_are_bracketed(self):
         """Verify all labels follow the [LABEL] format."""
         for attr in dir(StatusLabels):
-            if not attr.startswith('_'):
+            if not attr.startswith("_"):
                 value = getattr(StatusLabels, attr)
-                assert value.startswith('['), f"{attr} should start with ["
-                assert value.endswith(']'), f"{attr} should end with ]"
+                assert value.startswith("["), f"{attr} should start with ["
+                assert value.endswith("]"), f"{attr} should end with ]"
 
     def test_labels_are_uppercase(self):
         """Verify all label content (inside brackets) is uppercase."""
         for attr in dir(StatusLabels):
-            if not attr.startswith('_'):
+            if not attr.startswith("_"):
                 value = getattr(StatusLabels, attr)
                 # Extract content between brackets
                 content = value[1:-1]

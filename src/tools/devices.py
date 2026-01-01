@@ -65,15 +65,19 @@ async def handle_get_device_list(args: dict[str, Any]) -> list[TextContent]:
 
     # Step 5: Create human-readable summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total devices in system": f"{total} devices",
-        "Showing in this response": f"{count} devices",
-        "Online devices": f"{online_count} devices",
-        "Offline devices": f"{offline_count} devices",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total devices in system": f"{total} devices",
+                "Showing in this response": f"{count} devices",
+                "Online devices": f"{online_count} devices",
+                "Offline devices": f"{offline_count} devices",
+            }
+        )
+    )
+
     summary_parts.append("\n**Device Inventory Summary**")
     summary_parts.append(f"Total devices: {total} (showing {count})\n")
 
@@ -107,26 +111,31 @@ async def handle_get_device_list(args: dict[str, Any]) -> list[TextContent]:
 
     # Pagination info
     if next_cursor:
-        summary_parts.append(
-            "\n[PAGINATED] More results available (use next cursor for pagination)"
-        )
+        summary_parts.append("\n[PAGINATED] More results available (use next cursor for pagination)")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total devices": total,
-        "Online devices": online_count,
-        "Offline devices": offline_count,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total devices": total,
+                "Online devices": online_count,
+                "Offline devices": offline_count,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts for verification and return summary (NO raw JSON)
-    store_facts("get_device_list", {
-        "Total devices": total,
-        "Showing in response": count,
-        "Online devices": online_count,
-        "Offline devices": offline_count,
-        "By type": by_type,
-    })
-    
+    store_facts(
+        "get_device_list",
+        {
+            "Total devices": total,
+            "Showing in response": count,
+            "Online devices": online_count,
+            "Offline devices": offline_count,
+            "By type": by_type,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

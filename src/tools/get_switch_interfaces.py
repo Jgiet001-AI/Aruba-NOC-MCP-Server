@@ -70,15 +70,19 @@ async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent
 
     # Step 5: Create interface summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total ports": f"{total_ports} ports",
-        "Ports UP": f"{up_ports} ports",
-        "Ports DOWN": f"{down_ports} ports",
-        "PoE ports": f"{poe_ports} ports",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total ports": f"{total_ports} ports",
+                "Ports UP": f"{up_ports} ports",
+                "Ports DOWN": f"{down_ports} ports",
+                "PoE ports": f"{poe_ports} ports",
+            }
+        )
+    )
+
     summary_parts.append("\n[PORT] Switch Interface Report")
     summary_parts.append(f"\n[NAME] Switch: {switch_name}")
     summary_parts.append(f"[MODEL] Model: {model}")
@@ -175,21 +179,28 @@ async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent
             summary_parts.append(f"  [OK] PoE budget healthy - {poe_usage_pct:.1f}% used")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total ports": total_ports,
-        "Ports UP": up_ports,
-        "Ports DOWN": down_ports,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total ports": total_ports,
+                "Ports UP": up_ports,
+                "Ports DOWN": down_ports,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("get_switch_interfaces", {
-        "Switch": switch_name,
-        "Total ports": total_ports,
-        "Ports UP": up_ports,
-        "Ports DOWN": down_ports,
-        "PoE ports": poe_ports,
-    })
-    
+    store_facts(
+        "get_switch_interfaces",
+        {
+            "Switch": switch_name,
+            "Total ports": total_ports,
+            "Ports UP": up_ports,
+            "Ports DOWN": down_ports,
+            "PoE ports": poe_ports,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

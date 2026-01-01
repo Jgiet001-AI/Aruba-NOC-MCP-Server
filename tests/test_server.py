@@ -2,7 +2,7 @@
 Tests for server.py MCP server
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -48,55 +48,67 @@ class TestListTools:
 class TestCallTool:
     """Test cases for call_tool dispatcher."""
 
+    @pytest.fixture(autouse=True)
+    def mock_api_call(self):
+        """Mock the API client to prevent actual network calls"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"items": [], "total": 0, "count": 0}
+
+        with (
+            patch("src.api_client.config") as mock_config,
+            patch("src.api_client.httpx.AsyncClient") as mock_client_class,
+        ):
+            mock_config.access_token = "test_token"
+            mock_config.base_url = "https://api.test.com"
+            mock_config.get_headers.return_value = {"Authorization": "Bearer test_token"}
+
+            mock_client_instance = MagicMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client_instance
+            mock_client_class.return_value.__aexit__.return_value = None
+
+            async def mock_request(*args, **kwargs):
+                return mock_response
+
+            mock_client_instance.request = mock_request
+
+            yield
+
     @pytest.mark.asyncio
-    async def test_call_tool_get_device_list(self, mock_devices_response):
+    async def test_call_tool_get_device_list(self):
         """Test dispatching to get_device_list."""
-        with patch("src.server.handle_get_device_list", new_callable=AsyncMock) as mock_handler:
-            mock_handler.return_value = [{"type": "text", "text": "test"}]
-
-            await call_tool("get_device_list", {"limit": 10})
-
-            mock_handler.assert_called_once_with({"limit": 10})
+        result = await call_tool("get_device_list", {"limit": 10})
+        # Should return a list with TextContent
+        assert isinstance(result, list)
+        assert len(result) > 0
 
     @pytest.mark.asyncio
     async def test_call_tool_list_all_clients(self):
         """Test dispatching to list_all_clients."""
-        with patch("src.server.handle_list_all_clients", new_callable=AsyncMock) as mock_handler:
-            mock_handler.return_value = [{"type": "text", "text": "test"}]
-
-            await call_tool("list_all_clients", {"site_id": "123"})
-
-            mock_handler.assert_called_once_with({"site_id": "123"})
+        result = await call_tool("list_all_clients", {"site_id": "123"})
+        assert isinstance(result, list)
+        assert len(result) > 0
 
     @pytest.mark.asyncio
     async def test_call_tool_get_firmware_details(self):
         """Test dispatching to get_firmware_details."""
-        with patch("src.server.handle_get_firmware_details", new_callable=AsyncMock) as mock_handler:
-            mock_handler.return_value = [{"type": "text", "text": "test"}]
-
-            await call_tool("get_firmware_details", {})
-
-            mock_handler.assert_called_once_with({})
+        result = await call_tool("get_firmware_details", {})
+        assert isinstance(result, list)
+        assert len(result) > 0
 
     @pytest.mark.asyncio
     async def test_call_tool_list_gateways(self):
         """Test dispatching to list_gateways."""
-        with patch("src.server.handle_list_gateways", new_callable=AsyncMock) as mock_handler:
-            mock_handler.return_value = [{"type": "text", "text": "test"}]
-
-            await call_tool("list_gateways", {"filter": "status eq ONLINE"})
-
-            mock_handler.assert_called_once_with({"filter": "status eq ONLINE"})
+        result = await call_tool("list_gateways", {"filter": "status eq ONLINE"})
+        assert isinstance(result, list)
+        assert len(result) > 0
 
     @pytest.mark.asyncio
     async def test_call_tool_get_sites_health(self):
         """Test dispatching to get_sites_health."""
-        with patch("src.server.handle_get_sites_health", new_callable=AsyncMock) as mock_handler:
-            mock_handler.return_value = [{"type": "text", "text": "test"}]
-
-            await call_tool("get_sites_health", {"limit": 50})
-
-            mock_handler.assert_called_once_with({"limit": 50})
+        result = await call_tool("get_sites_health", {"limit": 50})
+        assert isinstance(result, list)
+        assert len(result) > 0
 
     @pytest.mark.asyncio
     async def test_call_tool_unknown_raises_error(self):

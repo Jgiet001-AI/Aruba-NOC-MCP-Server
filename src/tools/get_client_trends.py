@@ -13,6 +13,7 @@ from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
+
 async def handle_get_client_trends(args: dict[str, Any]) -> list[TextContent]:
     """Tool 9: Get Client Trends - /network-monitoring/v1alpha1/clients/trends"""
 
@@ -30,10 +31,7 @@ async def handle_get_client_trends(args: dict[str, Any]) -> list[TextContent]:
         params["interval"] = args["interval"]
 
     # Step 2: Call Aruba API
-    data = await call_aruba_api(
-        "/network-monitoring/v1alpha1/clients/trends",
-        params=params
-    )
+    data = await call_aruba_api("/network-monitoring/v1alpha1/clients/trends", params=params)
 
     # Step 3: Extract trend data
     trends = data.get("trends", [])
@@ -65,14 +63,18 @@ async def handle_get_client_trends(args: dict[str, Any]) -> list[TextContent]:
     summary_parts = []
     interval = params.get("interval", "1hour")
     data_points = len(trends)
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Data points": f"{data_points} data points",
-        "Peak clients": f"{max_clients} clients",
-        "Average clients": f"{avg_clients:.1f} clients",
-        "Min clients": f"{min_clients} clients",
-    }))
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Data points": f"{data_points} data points",
+                "Peak clients": f"{max_clients} clients",
+                "Average clients": f"{avg_clients:.1f} clients",
+                "Min clients": f"{min_clients} clients",
+            }
+        )
+    )
 
     summary_parts.append("\n[TREND] Client Connection Trends")
     summary_parts.append(f"\n[TIME] Time Period: {data_points} data points at {interval} intervals")
@@ -95,9 +97,9 @@ async def handle_get_client_trends(args: dict[str, Any]) -> list[TextContent]:
         older_avg = sum(total_counts[:5]) / min(5, len(total_counts))
 
         if recent_avg > older_avg * 1.1:
-            summary_parts.append(f"\n[TREND] [UP] Increasing (+{((recent_avg/older_avg - 1) * 100):.1f}%)")
+            summary_parts.append(f"\n[TREND] [UP] Increasing (+{((recent_avg / older_avg - 1) * 100):.1f}%)")
         elif recent_avg < older_avg * 0.9:
-            summary_parts.append(f"\n[TREND] [DN] Decreasing ({((recent_avg/older_avg - 1) * 100):.1f}%)")
+            summary_parts.append(f"\n[TREND] [DN] Decreasing ({((recent_avg / older_avg - 1) * 100):.1f}%)")
         else:
             summary_parts.append("\n[TREND] Stable")
 
@@ -106,21 +108,28 @@ async def handle_get_client_trends(args: dict[str, Any]) -> list[TextContent]:
         summary_parts.append("\n[WARN] Peak usage is 50% above average - consider capacity planning")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Peak clients": max_clients,
-        "Average clients": f"{avg_clients:.1f}",
-        "Data points": data_points,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Peak clients": max_clients,
+                "Average clients": f"{avg_clients:.1f}",
+                "Data points": data_points,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 5: Store facts and return summary (NO raw JSON)
-    store_facts("get_client_trends", {
-        "Peak clients": max_clients,
-        "Average clients": avg_clients,
-        "Min clients": min_clients,
-        "Avg wireless": avg_wireless,
-        "Avg wired": avg_wired,
-    })
-    
+    store_facts(
+        "get_client_trends",
+        {
+            "Peak clients": max_clients,
+            "Average clients": avg_clients,
+            "Min clients": min_clients,
+            "Avg wireless": avg_wireless,
+            "Avg wired": avg_wired,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

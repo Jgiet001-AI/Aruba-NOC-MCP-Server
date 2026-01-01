@@ -13,6 +13,7 @@ from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
+
 async def handle_list_wlans(args: dict[str, Any]) -> list[TextContent]:
     """Tool 17: List WLANs - /network-monitoring/v1alpha1/wlans"""
 
@@ -24,10 +25,7 @@ async def handle_list_wlans(args: dict[str, Any]) -> list[TextContent]:
     params["limit"] = args.get("limit", 100)
 
     # Step 2: Call Aruba API
-    data = await call_aruba_api(
-        "/network-monitoring/v1alpha1/wlans",
-        params=params
-    )
+    data = await call_aruba_api("/network-monitoring/v1alpha1/wlans", params=params)
 
     # Step 3: Extract WLAN data
     wlans = data.get("items", [])
@@ -56,16 +54,22 @@ async def handle_list_wlans(args: dict[str, Any]) -> list[TextContent]:
 
     # Step 4: Create summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total WLANs": f"{total} WLANs",
-        "Enabled": f"{enabled_count} WLANs",
-        "Disabled": f"{disabled_count} WLANs",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total WLANs": f"{total} WLANs",
+                "Enabled": f"{enabled_count} WLANs",
+                "Disabled": f"{disabled_count} WLANs",
+            }
+        )
+    )
+
     summary_parts.append("\n[WIFI] Wireless Networks (WLANs)")
-    summary_parts.append(f"\n[STATS] Total: {total} WLANs | [UP] {enabled_count} enabled | [DN] {disabled_count} disabled")
+    summary_parts.append(
+        f"\n[STATS] Total: {total} WLANs | [UP] {enabled_count} enabled | [DN] {disabled_count} disabled"
+    )
     summary_parts.append("\n[SEC] Security Distribution:")
     for sec_type, count in sorted(by_security.items(), key=lambda x: x[1], reverse=True):
         summary_parts.append(f"  * {sec_type}: {count} WLANs")
@@ -94,20 +98,27 @@ async def handle_list_wlans(args: dict[str, Any]) -> list[TextContent]:
             summary_parts.append("   [INFO] Hidden SSID - clients must know exact name")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total WLANs": total,
-        "Enabled": enabled_count,
-        "Disabled": disabled_count,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total WLANs": total,
+                "Enabled": enabled_count,
+                "Disabled": disabled_count,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 5: Store facts and return summary (NO raw JSON)
-    store_facts("list_wlans", {
-        "Total WLANs": total,
-        "Enabled": enabled_count,
-        "Disabled": disabled_count,
-        "Security types": by_security,
-    })
-    
+    store_facts(
+        "list_wlans",
+        {
+            "Total WLANs": total,
+            "Enabled": enabled_count,
+            "Disabled": disabled_count,
+            "Security types": by_security,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

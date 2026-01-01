@@ -258,9 +258,7 @@ class TestCallArubaApiTokenRefresh:
 
         with patch("src.api_client.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_client.request = AsyncMock(
-                side_effect=[mock_response_401, mock_response_200]
-            )
+            mock_client.request = AsyncMock(side_effect=[mock_response_401, mock_response_200])
             mock_client_class.return_value.__aenter__.return_value = mock_client
 
             with patch("src.api_client.config") as mock_config:

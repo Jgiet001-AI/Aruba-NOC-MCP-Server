@@ -64,14 +64,18 @@ async def handle_get_ap_cpu_utilization(args: dict[str, Any]) -> list[TextConten
 
     # Step 5: Create performance summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Current CPU": f"{current_cpu}%",
-        "Average CPU": f"{avg_cpu:.1f}%",
-        "Peak CPU": f"{max_cpu}%",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Current CPU": f"{current_cpu}%",
+                "Average CPU": f"{avg_cpu:.1f}%",
+                "Peak CPU": f"{max_cpu}%",
+            }
+        )
+    )
+
     summary_parts.append(f"\n[CPU] CPU Utilization: {ap_name}")
     summary_parts.append(f"\n[STATS] Current: {current_cpu}%")
     summary_parts.append(f"\n[TREND] Statistics ({len(trends)} data points @ {interval}):")
@@ -104,20 +108,27 @@ async def handle_get_ap_cpu_utilization(args: dict[str, Any]) -> list[TextConten
         summary_parts.append("\n[INFO] Recommendation: Consider reducing client load or upgrading AP hardware")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Current CPU": f"{current_cpu}%",
-        "Average CPU": f"{avg_cpu:.1f}%",
-        "Peak CPU": f"{max_cpu}%",
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Current CPU": f"{current_cpu}%",
+                "Average CPU": f"{avg_cpu:.1f}%",
+                "Peak CPU": f"{max_cpu}%",
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("get_ap_cpu_utilization", {
-        "AP": ap_name,
-        "Current CPU": f"{current_cpu}%",
-        "Average CPU": f"{avg_cpu:.1f}%",
-        "Peak CPU": f"{max_cpu}%",
-    })
-    
+    store_facts(
+        "get_ap_cpu_utilization",
+        {
+            "AP": ap_name,
+            "Current CPU": f"{current_cpu}%",
+            "Average CPU": f"{avg_cpu:.1f}%",
+            "Peak CPU": f"{max_cpu}%",
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

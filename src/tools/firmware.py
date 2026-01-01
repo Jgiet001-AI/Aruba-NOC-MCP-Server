@@ -86,15 +86,19 @@ async def handle_get_firmware_details(args: dict[str, Any]) -> list[TextContent]
 
     # Step 5: Create human-readable summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "Total devices analyzed": f"{total_devices} devices",
-        "Up to date": f"{by_upgrade_status.get('Up To Date', 0)} devices",
-        "Update available": f"{by_upgrade_status.get('Update Available', 0)} devices",
-        "Update required": f"{by_upgrade_status.get('Update Required', 0)} devices",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "Total devices analyzed": f"{total_devices} devices",
+                "Up to date": f"{by_upgrade_status.get('Up To Date', 0)} devices",
+                "Update available": f"{by_upgrade_status.get('Update Available', 0)} devices",
+                "Update required": f"{by_upgrade_status.get('Update Required', 0)} devices",
+            }
+        )
+    )
+
     summary_parts.append("\n**Firmware Status Overview**")
     summary_parts.append(f"Total devices analyzed: {total_devices}\n")
 
@@ -143,20 +147,27 @@ async def handle_get_firmware_details(args: dict[str, Any]) -> list[TextContent]
         summary_parts.append("\n[MORE] Results available (use next cursor)")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "Total devices": total_devices,
-        "Up to date": by_upgrade_status.get('Up To Date', 0),
-        "Needs update": len(devices_needing_updates),
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "Total devices": total_devices,
+                "Up to date": by_upgrade_status.get("Up To Date", 0),
+                "Needs update": len(devices_needing_updates),
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 6: Store facts and return summary (NO raw JSON)
-    store_facts("get_firmware_details", {
-        "Total devices": total_devices,
-        "Up to date": by_upgrade_status.get('Up To Date', 0),
-        "Update available": by_upgrade_status.get('Update Available', 0),
-        "Update required": by_upgrade_status.get('Update Required', 0),
-    })
-    
+    store_facts(
+        "get_firmware_details",
+        {
+            "Total devices": total_devices,
+            "Up to date": by_upgrade_status.get("Up To Date", 0),
+            "Update available": by_upgrade_status.get("Update Available", 0),
+            "Update required": by_upgrade_status.get("Update Required", 0),
+        },
+    )
+
     return [TextContent(type="text", text=summary)]

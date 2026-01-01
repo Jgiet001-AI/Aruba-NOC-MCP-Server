@@ -42,13 +42,17 @@ async def handle_get_ap_radios(args: dict[str, Any]) -> list[TextContent]:
 
     # Step 4: Create radio summary with verification guardrails
     summary_parts = []
-    
+
     # Verification checkpoint FIRST
-    summary_parts.append(VerificationGuards.checkpoint({
-        "AP Name": ap_name,
-        "Total radios": f"{len(radios)} radios",
-    }))
-    
+    summary_parts.append(
+        VerificationGuards.checkpoint(
+            {
+                "AP Name": ap_name,
+                "Total radios": f"{len(radios)} radios",
+            }
+        )
+    )
+
     summary_parts.append(f"\n[RADIO] Radio Status: {ap_name}")
     summary_parts.append(f"\n[INFO] {len(radios)} Radio(s) Detected")
 
@@ -110,19 +114,26 @@ async def handle_get_ap_radios(args: dict[str, Any]) -> list[TextContent]:
         summary_parts.append("  * Review channel assignments to minimize interference")
 
     # Anti-hallucination footer
-    summary_parts.append(VerificationGuards.anti_hallucination_footer({
-        "AP Name": ap_name,
-        "Total radios": len(radios),
-        "Total clients across radios": total_clients,
-    }))
+    summary_parts.append(
+        VerificationGuards.anti_hallucination_footer(
+            {
+                "AP Name": ap_name,
+                "Total radios": len(radios),
+                "Total clients across radios": total_clients,
+            }
+        )
+    )
 
     summary = "\n".join(summary_parts)
 
     # Step 5: Store facts and return summary (NO raw JSON)
-    store_facts("get_ap_radios", {
-        "AP Name": ap_name,
-        "Total radios": len(radios),
-        "Total clients": total_clients,
-    })
-    
+    store_facts(
+        "get_ap_radios",
+        {
+            "AP Name": ap_name,
+            "Total radios": len(radios),
+            "Total clients": total_clients,
+        },
+    )
+
     return [TextContent(type="text", text=summary)]
