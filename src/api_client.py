@@ -86,7 +86,7 @@ async def call_aruba_api(
     # Check circuit breaker first (fail fast if API is down)
     try:
         circuit_breaker.check()
-    except CircuitBreakerError as e:
+    except CircuitBreakerError:
         logger.warning(f"Circuit breaker prevented API call to {endpoint}")
         raise
 
@@ -134,7 +134,7 @@ async def call_aruba_api(
             )
         raise
 
-    except Exception as e:
+    except Exception:
         # Other errors (timeout, connection, etc.)
-        logger.error(f"API call to {endpoint} failed: {e}")
+        logger.exception(f"API call to {endpoint} failed")
         raise

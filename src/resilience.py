@@ -10,9 +10,10 @@ Both patterns use pure Python async without external dependencies.
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Callable, TypeVar
+from typing import TypeVar
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -52,12 +53,10 @@ class RateLimiter:
         self.max_requests = max_requests
         self.window = timedelta(seconds=window_seconds)
         self.tokens = max_requests  # Start with full bucket
-        self.last_refill = datetime.now()
+        self.last_refill = datetime.now(UTC)
         self.lock = asyncio.Lock()
 
-        logger.info(
-            f"Rate limiter initialized: {max_requests} requests per {window_seconds}s"
-        )
+        logger.info(f"Rate limiter initialized: {max_requests} requests per {window_seconds}s")
 
     async def acquire(self):
         """
@@ -80,7 +79,7 @@ class RateLimiter:
 
     async def _refill_tokens(self):
         """Refill tokens based on elapsed time."""
-        now = datetime.now()
+        now = datetime.now(UTC)
         elapsed = (now - self.last_refill).total_seconds()
 
         # Calculate refill rate (tokens per second)
@@ -109,8 +108,6 @@ class CircuitState(Enum):
 
 class CircuitBreakerError(Exception):
     """Raised when circuit breaker is open."""
-
-    pass
 
 
 class CircuitBreaker:
@@ -154,10 +151,7 @@ class CircuitBreaker:
         self.state = CircuitState.CLOSED
         self.lock = asyncio.Lock()
 
-        logger.info(
-            f"Circuit breaker initialized: threshold={failure_threshold}, "
-            f"timeout={timeout_seconds}s"
-        )
+        logger.info(f"Circuit breaker initialized: threshold={failure_threshold}, timeout={timeout_seconds}s")
 
     def check(self):
         """
@@ -171,15 +165,14 @@ class CircuitBreaker:
 
         if self.state == CircuitState.OPEN:
             # Check if timeout elapsed
-            if self.last_failure_time and datetime.now() - self.last_failure_time > self.timeout:
+            if self.last_failure_time and datetime.now(UTC) - self.last_failure_time > self.timeout:
                 self.state = CircuitState.HALF_OPEN
                 logger.info("Circuit breaker: OPEN → HALF_OPEN (testing recovery)")
                 return  # Allow one test request
 
             # Circuit still open
             raise CircuitBreakerError(
-                f"Circuit breaker OPEN - API unavailable. "
-                f"Retry in {self.timeout.total_seconds()}s."
+                f"Circuit breaker OPEN - API unavailable. Retry in {self.timeout.total_seconds()}s."
             )
 
         # HALF_OPEN - allow test request
@@ -192,9 +185,7 @@ class CircuitBreaker:
                 # Service recovered!
                 self.state = CircuitState.CLOSED
                 self.failures = 0
-                logger.info(
-                    "Circuit breaker: HALF_OPEN → CLOSED (service recovered)"
-                )
+                logger.info("Circuit breaker: HALF_OPEN → CLOSED (service recovered)")
             elif self.state == CircuitState.CLOSED:
                 # Reset failure count on success
                 self.failures = 0
@@ -203,22 +194,17 @@ class CircuitBreaker:
         """Record failed API call."""
         async with self.lock:
             self.failures += 1
-            self.last_failure_time = datetime.now()
+            self.last_failure_time = datetime.now(UTC)
 
             if self.state == CircuitState.HALF_OPEN:
                 # Test failed, reopen circuit
                 self.state = CircuitState.OPEN
-                logger.warning(
-                    "Circuit breaker: HALF_OPEN → OPEN (recovery test failed)"
-                )
+                logger.warning("Circuit breaker: HALF_OPEN → OPEN (recovery test failed)")
 
             elif self.failures >= self.failure_threshold:
                 # Too many failures, open circuit
                 self.state = CircuitState.OPEN
-                logger.warning(
-                    f"Circuit breaker: CLOSED → OPEN "
-                    f"({self.failures} consecutive failures)"
-                )
+                logger.warning(f"Circuit breaker: CLOSED → OPEN ({self.failures} consecutive failures)")
 
     async def reset(self):
         """Manually reset circuit breaker."""
@@ -264,13 +250,6 @@ async def with_resilience(
     # Execute function
     try:
         result = await func()
-
-        # Record success
-        if circuit_breaker:
-            await circuit_breaker.record_success()
-
-        return result
-
     except Exception as e:
         # Record failure (only for 5xx errors, not client errors)
         if circuit_breaker:
@@ -281,3 +260,9 @@ async def with_resilience(
                 await circuit_breaker.record_failure()
 
         raise
+    else:
+        # Record success
+        if circuit_breaker:
+            await circuit_breaker.record_success()
+
+        return result

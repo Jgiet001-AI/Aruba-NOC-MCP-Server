@@ -1216,9 +1216,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     try:
         logger.info(f"Executing tool: {name}")
         result = await handler(arguments)
-        logger.info(f"Tool {name} completed successfully")
-        return result
-
     except Exception as e:
         logger.exception(f"Tool {name} failed with error")
         from src.tools.base import StatusLabels
@@ -1227,11 +1224,14 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             TextContent(
                 type="text",
                 text=(
-                    f"{StatusLabels.ERR} Tool {name} failed: {str(e)}\n\n"
+                    f"{StatusLabels.ERR} Tool {name} failed: {e!s}\n\n"
                     "Please check the logs for detailed error information."
                 ),
             )
         ]
+    else:
+        logger.info(f"Tool {name} completed successfully")
+        return result
 
 
 async def main():

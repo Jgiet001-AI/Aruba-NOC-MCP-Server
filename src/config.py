@@ -114,10 +114,7 @@ class ArubaConfig:
             Dictionary of HTTP headers
         """
         if not self.access_token:
-            raise ValueError(
-                "Access token not available. "
-                "Call get_access_token() first or provide ARUBA_ACCESS_TOKEN."
-            )
+            raise ValueError("Access token not available. Call get_access_token() first or provide ARUBA_ACCESS_TOKEN.")
 
         return {
             "Authorization": f"Bearer {self.access_token}",
@@ -170,9 +167,7 @@ class ArubaConfig:
 
             # Log success without exposing token (security best practice)
             expires_in = token_data.get("expires_in", "unknown")
-            logger.info(
-                f"OAuth2 access token acquired successfully (expires in {expires_in}s)"
-            )
+            logger.info(f"OAuth2 access token acquired successfully (expires in {expires_in}s)")
 
             return self.access_token
 

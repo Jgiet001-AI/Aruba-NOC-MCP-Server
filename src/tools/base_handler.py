@@ -69,7 +69,7 @@ class BaseToolHandler(ABC):
         Raises:
             Any exceptions will be caught and handled by __call__
         """
-        pass
+        ...
 
     async def __call__(self, args: dict[str, Any]) -> list[TextContent]:
         """
@@ -87,9 +87,6 @@ class BaseToolHandler(ABC):
         try:
             self.logger.info(f"Executing {self.tool_name}", extra={"args": args})
             result = await self.execute(args)
-            self.logger.info(f"{self.tool_name} completed successfully")
-            return result
-
         except httpx.HTTPStatusError as e:
             self.logger.warning(
                 f"{self.tool_name} HTTP error",
@@ -117,11 +114,14 @@ class BaseToolHandler(ABC):
                 TextContent(
                     type="text",
                     text=(
-                        f"{StatusLabels.ERR} {self.tool_name} failed: {str(e)}\n\n"
+                        f"{StatusLabels.ERR} {self.tool_name} failed: {e!s}\n\n"
                         "An unexpected error occurred. Please check the logs for details."
                     ),
                 )
             ]
+        else:
+            self.logger.info(f"{self.tool_name} completed successfully")
+            return result
 
     def _handle_http_error(self, e: httpx.HTTPStatusError) -> list[TextContent]:
         """
@@ -188,9 +188,7 @@ class BaseToolHandler(ABC):
             ),
         }
 
-        message = error_messages.get(
-            status, f"HTTP {status} error - an unexpected status code was returned."
-        )
+        message = error_messages.get(status, f"HTTP {status} error - an unexpected status code was returned.")
 
         # Try to extract error details from response
         try:
