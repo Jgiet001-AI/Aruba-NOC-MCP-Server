@@ -1181,12 +1181,57 @@ TOOL_HANDLERS = {
 
 
 @app.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any]) -> TextContent:
-    """Dispatches a tool call to the appropriate handler."""
+async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
+    """
+    Dispatch a tool call to the appropriate handler.
+
+    Provides consistent error handling and logging for all tool invocations.
+
+    Args:
+        name: Tool name to invoke
+        arguments: Tool arguments from MCP client
+
+    Returns:
+        List of TextContent responses
+
+    Raises:
+        ValueError: If tool name is unknown
+    """
     handler = TOOL_HANDLERS.get(name)
+
     if handler is None:
-        raise ValueError(f"Unknown tool: {name}")
-    return await handler(arguments)
+        logger.error(f"Unknown tool requested: {name}")
+        from src.tools.base import StatusLabels
+
+        return [
+            TextContent(
+                type="text",
+                text=(
+                    f"{StatusLabels.ERR} Unknown tool: {name}\n\n"
+                    f"Available tools: {', '.join(sorted(TOOL_HANDLERS.keys()))}"
+                ),
+            )
+        ]
+
+    try:
+        logger.info(f"Executing tool: {name}")
+        result = await handler(arguments)
+        logger.info(f"Tool {name} completed successfully")
+        return result
+
+    except Exception as e:
+        logger.exception(f"Tool {name} failed with error")
+        from src.tools.base import StatusLabels
+
+        return [
+            TextContent(
+                type="text",
+                text=(
+                    f"{StatusLabels.ERR} Tool {name} failed: {str(e)}\n\n"
+                    "Please check the logs for detailed error information."
+                ),
+            )
+        ]
 
 
 async def main():

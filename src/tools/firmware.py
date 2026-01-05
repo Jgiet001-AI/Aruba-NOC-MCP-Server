@@ -54,28 +54,28 @@ async def handle_get_firmware_details(args: dict[str, Any]) -> list[TextContent]
 
     for device in devices:
         # Upgrade status
-        upgrade_status = device.get("upgradeStatus", "Unknown")
+        upgrade_status = device.get("upgradeStatus") or "Unknown"
         if upgrade_status in by_upgrade_status:
             by_upgrade_status[upgrade_status] += 1
         else:
             by_upgrade_status["Unknown"] += 1
 
-        # Classification
-        classification = device.get("firmwareClassification", "Unknown")
+        # Classification (handle None values from API)
+        classification = device.get("firmwareClassification") or "Unknown"
         by_classification[classification] = by_classification.get(classification, 0) + 1
 
         # Device type
-        device_type = device.get("deviceType", "Unknown")
+        device_type = device.get("deviceType") or "Unknown"
         by_device_type[device_type] = by_device_type.get(device_type, 0) + 1
 
         # Track devices needing updates
         if upgrade_status in ["Update Available", "Update Required"]:
             devices_needing_updates.append(
                 {
-                    "name": device.get("deviceName", "Unknown"),
-                    "serial": device.get("serialNumber", "N/A"),
-                    "current": device.get("softwareVersion", "Unknown"),
-                    "recommended": device.get("recommendedVersion", "N/A"),
+                    "name": device.get("deviceName") or "Unknown",
+                    "serial": device.get("serialNumber") or "N/A",
+                    "current": device.get("softwareVersion") or "Unknown",
+                    "recommended": device.get("recommendedVersion") or "N/A",
                     "status": upgrade_status,
                     "classification": classification,
                 }

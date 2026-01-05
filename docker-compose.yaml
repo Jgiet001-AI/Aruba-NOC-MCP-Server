@@ -9,6 +9,11 @@ services:
     # Required for stdio MCP transport
     stdin_open: true
     tty: true
+    # Docker Secrets (production - most secure)
+    # Uncomment to use secrets instead of environment variables
+    # secrets:
+    #   - aruba_client_id
+    #   - aruba_client_secret
     # Health check
     healthcheck:
       test: [ "CMD", "python", "-c", "from src.server import app; print('ok')" ]
@@ -16,3 +21,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+# Docker Secrets Configuration (Production)
+# Uncomment this section to use Docker Secrets
+# Create secrets first: echo "your_secret" | docker secret create aruba_client_secret -
+# secrets:
+#   aruba_client_id:
+#     external: true
+#   aruba_client_secret:
+#     external: true
