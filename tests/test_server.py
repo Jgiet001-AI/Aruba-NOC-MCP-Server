@@ -112,6 +112,8 @@ class TestCallTool:
 
     @pytest.mark.asyncio
     async def test_call_tool_unknown_raises_error(self):
-        """Test that unknown tool raises ValueError."""
-        with pytest.raises(ValueError, match="Unknown tool"):
-            await call_tool("nonexistent_tool", {})
+        """Test that unknown tool returns error response."""
+        result = await call_tool("nonexistent_tool", {})
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert "Unknown tool" in result[0].text

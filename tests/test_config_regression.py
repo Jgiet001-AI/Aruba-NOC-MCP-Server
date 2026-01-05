@@ -244,7 +244,7 @@ class TestArubaConfigGetAccessToken:
                 with pytest.raises(ValueError) as exc_info:
                     await config.get_access_token()
 
-            assert "Access token not found in response" in str(exc_info.value)
+            assert "Access token not found in OAuth2 response" in str(exc_info.value)
 
 
 class TestModuleLevelConfig:
