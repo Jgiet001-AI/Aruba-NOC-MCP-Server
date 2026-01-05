@@ -6,8 +6,9 @@ on:
       - "v*"
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  GHCR_REGISTRY: ghcr.io
+  GHCR_IMAGE_NAME: ${{ github.repository }}
+  DOCKERHUB_IMAGE_NAME: jgiet001ai/aruba-noc-mcp-server
 
 jobs:
   build-and-push:
@@ -27,19 +28,31 @@ jobs:
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: |
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE_NAME }}
+            ${{ secrets.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_IMAGE_NAME || '' }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=sha
+          flavor: |
+            latest=auto
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -50,6 +63,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
 
   create-release:
     name: Create GitHub Release
@@ -68,3 +82,48 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') }}
+          body: |
+            ## Aruba NOC MCP Server
+
+            Production-ready MCP server for Aruba Central network monitoring and management.
+
+            ### Docker Images
+
+            **GitHub Container Registry:**
+            ```bash
+            docker pull ghcr.io/jgiet001-ai/aruba-noc-mcp-server:latest
+            docker pull ghcr.io/jgiet001-ai/aruba-noc-mcp-server:${{ github.ref_name }}
+            ```
+
+            **DockerHub:**
+            ```bash
+            docker pull jgiet001ai/aruba-noc-mcp-server:latest
+            docker pull jgiet001ai/aruba-noc-mcp-server:${{ github.ref_name }}
+            ```
+
+            **Supported Platforms:** linux/amd64, linux/arm64
+
+            ### Features
+
+            - OAuth2 automatic token generation
+            - Docker Secrets support for secure credential management
+            - Rate limiting (100 requests/minute, configurable)
+            - Circuit breaker pattern for API resilience
+            - All 30 Aruba Central network management tools
+            - MCP protocol compliant
+            - Multi-platform Docker images
+
+            ### Quick Start
+
+            ```bash
+            docker run -d \
+              --name aruba-noc-mcp-server \
+              -e ARUBA_CLIENT_ID=your_client_id \
+              -e ARUBA_CLIENT_SECRET=your_client_secret \
+              -e ARUBA_BASE_URL=https://us1.api.central.arubanetworks.com \
+              jgiet001ai/aruba-noc-mcp-server:latest
+            ```
+
+            See [DEPLOYMENT_GUIDE.md](https://github.com/Jgiet001-AI/Aruba-NOC-MCP-Server/blob/main/DEPLOYMENT_GUIDE.md) for production deployment with Docker Secrets.
+
+            ---
