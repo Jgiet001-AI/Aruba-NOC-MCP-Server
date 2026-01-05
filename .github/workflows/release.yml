@@ -8,7 +8,7 @@ on:
 env:
   GHCR_REGISTRY: ghcr.io
   GHCR_IMAGE_NAME: ${{ github.repository }}
-  DOCKERHUB_IMAGE_NAME: jgiet001ai/aruba-noc-mcp-server
+  DOCKERHUB_IMAGE_NAME: jgiet001/aruba-noc-mcp-server
 
 jobs:
   build-and-push:
@@ -97,8 +97,8 @@ jobs:
 
             **DockerHub:**
             ```bash
-            docker pull jgiet001ai/aruba-noc-mcp-server:latest
-            docker pull jgiet001ai/aruba-noc-mcp-server:${{ github.ref_name }}
+            docker pull jgiet001/aruba-noc-mcp-server:latest
+            docker pull jgiet001/aruba-noc-mcp-server:${{ github.ref_name }}
             ```
 
             **Supported Platforms:** linux/amd64, linux/arm64
@@ -121,7 +121,7 @@ jobs:
               -e ARUBA_CLIENT_ID=your_client_id \
               -e ARUBA_CLIENT_SECRET=your_client_secret \
               -e ARUBA_BASE_URL=https://us1.api.central.arubanetworks.com \
-              jgiet001ai/aruba-noc-mcp-server:latest
+              jgiet001/aruba-noc-mcp-server:latest
             ```
 
             See [DEPLOYMENT_GUIDE.md](https://github.com/Jgiet001-AI/Aruba-NOC-MCP-Server/blob/main/DEPLOYMENT_GUIDE.md) for production deployment with Docker Secrets.
