@@ -1241,8 +1241,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 async def main():
     """Run the MCP server."""
     import sys
+    from src.version_check import VERSION_ID, HAS_AUTO_TOKEN_FIX
 
-    print("Starting Aruba NOC Server...", file=sys.stderr)
+    print(f"Starting Aruba NOC Server [{VERSION_ID}]...", file=sys.stderr)
+    print(f"Auto-token fix: {'ENABLED' if HAS_AUTO_TOKEN_FIX else 'DISABLED'}", file=sys.stderr)
 
     async with stdio_server() as (read_stream, write_stream):
         await app.run(read_stream, write_stream, app.create_initialization_options())
