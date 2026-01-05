@@ -93,6 +93,11 @@ async def call_aruba_api(
     # Acquire rate limit token (wait if necessary)
     await rate_limiter.acquire()
 
+    # Auto-generate token if not available
+    if not config.access_token:
+        logger.info("No access token found, generating via OAuth2...")
+        await config.get_access_token()
+
     url = f"{config.base_url}{endpoint}"
 
     try:

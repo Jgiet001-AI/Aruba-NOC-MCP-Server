@@ -1,7 +1,11 @@
 import logging
 from typing import Any
 
+from dotenv import load_dotenv
 from mcp.server import Server
+
+# Load environment variables from .env file
+load_dotenv()
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
