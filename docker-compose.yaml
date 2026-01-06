@@ -22,7 +22,7 @@ services:
     #   - aruba_client_secret
     # Health check
     healthcheck:
-      test: [ "CMD", "python", "-c", "from src.server import app; print('ok')" ]
+      test: ["CMD", "python", "-c", "from src.server import app; print('OK')"]
       interval: 30s
       timeout: 10s
       retries: 3

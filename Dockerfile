@@ -27,6 +27,13 @@ COPY --chown=mcp:mcp src/ ./src/
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "from src.server import app; print('OK')" || exit 1
+
+# Use proper entrypoint - can be overridden by docker exec
+ENTRYPOINT ["python", "-m", "src.server"]
+CMD []
 # Switch to non-root user
 USER mcp
 
