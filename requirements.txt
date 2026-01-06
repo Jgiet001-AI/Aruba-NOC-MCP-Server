@@ -22,7 +22,7 @@ tenacity==9.0.0
 langsmith>=0.1.0
 
 # ASGI Server (optional, for HTTP transport)
-uvicorn==0.35.0
+uvicorn==0.40.0
 
 # Transitive dependencies (pinned for reproducibility)
 anyio==4.8.0
