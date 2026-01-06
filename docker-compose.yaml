@@ -3,6 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Enable BuildKit features
+      args:
+        BUILDKIT_INLINE_CACHE: "1"
+      # Note: For supply chain attestations (SBOM + provenance), use:
+      #   ./build.sh
+      # Docker Compose doesn't fully support --provenance=max and --sbom=true yet
     container_name: aruba-noc-mcp-server
     env_file:
       - .env
