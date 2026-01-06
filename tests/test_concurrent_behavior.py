@@ -98,7 +98,7 @@ class TestConcurrentTokenRefresh:
         only ONE OAuth2 request due to the lock + token change detection.
 
         This verifies Bug #3 fix: Concurrent token refresh race.
-        
+
         NOTE: This test is skipped because the production code in src/config.py
         does not implement the lock mechanism to prevent concurrent token refreshes.
         To enable this test, add asyncio.Lock() to ArubaConfig.get_access_token().

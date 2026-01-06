@@ -9,8 +9,8 @@ from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
 from src.tools.base import VerificationGuards
-from src.tools.verify_facts import store_facts
 from src.tools.site_helper import ensure_site_id
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 

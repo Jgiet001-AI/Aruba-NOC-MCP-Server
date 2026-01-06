@@ -104,23 +104,22 @@ async def handle_check_server_health() -> list[types.TextContent]:
             }
             logger.warning("Health check: Token expired")
 
+        # Token is valid
+        elif config._token_expiry:
+            expiry_seconds = (config._token_expiry - datetime.now(UTC)).total_seconds()
+            health_status["components"]["auth"] = {
+                "status": "healthy",
+                "token_expires_in_seconds": int(expiry_seconds),
+                "expires_at": config._token_expiry.isoformat(),
+            }
+            dependencies_up += 1
         else:
-            # Token is valid
-            if config._token_expiry:
-                expiry_seconds = (config._token_expiry - datetime.now(UTC)).total_seconds()
-                health_status["components"]["auth"] = {
-                    "status": "healthy",
-                    "token_expires_in_seconds": int(expiry_seconds),
-                    "expires_at": config._token_expiry.isoformat(),
-                }
-                dependencies_up += 1
-            else:
-                # Token exists but no expiry tracking
-                health_status["components"]["auth"] = {
-                    "status": "healthy",
-                    "message": "Token available (expiry unknown)",
-                }
-                dependencies_up += 1
+            # Token exists but no expiry tracking
+            health_status["components"]["auth"] = {
+                "status": "healthy",
+                "message": "Token available (expiry unknown)",
+            }
+            dependencies_up += 1
 
     except Exception as e:
         health_status["components"]["auth"] = {

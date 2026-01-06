@@ -10,8 +10,8 @@ from mcp.types import TextContent
 
 from src.api_client import call_aruba_api
 from src.tools.base import VerificationGuards
-from src.tools.verify_facts import store_facts
 from src.tools.site_helper import get_site_id_for_device
+from src.tools.verify_facts import store_facts
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -31,7 +31,7 @@ async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent
     try:
         site_id = await get_site_id_for_device(serial)
         params = {"site-id": site_id}
-        
+
         # Call Aruba API with site-id parameter
         data = await call_aruba_api(f"/network-monitoring/v1alpha1/switch/{serial}/interfaces", params=params)
     except httpx.HTTPStatusError as e:

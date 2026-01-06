@@ -6,7 +6,6 @@ helpers to automatically fetch a valid site ID when not provided by the user.
 """
 
 import logging
-from functools import lru_cache
 from typing import Any
 
 from src.api_client import call_aruba_api
@@ -107,8 +106,7 @@ async def get_site_id_for_device(serial: str) -> str:
                 if site_id:
                     logger.info(f"✅ Found site ID for {serial}: {site_id}")
                     return site_id
-                else:
-                    raise ValueError(f"Device {serial} has no site ID assigned")
+                raise ValueError(f"Device {serial} has no site ID assigned")
 
         raise ValueError(f"Device with serial {serial} not found")
 
