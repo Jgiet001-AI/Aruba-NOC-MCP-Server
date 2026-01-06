@@ -161,8 +161,10 @@ class TestClientsHandlerPatterns:
         """Verify handler returns list of TextContent."""
         from src.tools.clients import handle_list_all_clients
 
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = mock_clients_data
+            mock_site.return_value = {"site-id": "test-site"}
 
             result = await handle_list_all_clients({})
 
@@ -175,8 +177,10 @@ class TestClientsHandlerPatterns:
         """Verify connection type labels are used."""
         from src.tools.clients import handle_list_all_clients
 
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = mock_clients_data
+            mock_site.return_value = {"site-id": "test-site"}
 
             result = await handle_list_all_clients({})
             text = result[0].text
@@ -189,8 +193,10 @@ class TestClientsHandlerPatterns:
         """Verify experience status labels are used."""
         from src.tools.clients import handle_list_all_clients
 
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = mock_clients_data
+            mock_site.return_value = {"site-id": "test-site"}
 
             result = await handle_list_all_clients({})
             text = result[0].text
@@ -203,8 +209,11 @@ class TestClientsHandlerPatterns:
         """Verify snake_case args are converted to hyphenated API params."""
         from src.tools.clients import handle_list_all_clients
 
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = mock_clients_data
+            # Mock should preserve params and add site-id
+            mock_site.side_effect = lambda p: {**p, "site-id": "test-site"}
 
             await handle_list_all_clients(
                 {
@@ -418,8 +427,10 @@ class TestPaginationPatterns:
             "next": "cursor_token_456",
         }
 
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = paginated_data
+            mock_site.return_value = {"site-id": "test-site"}
 
             result = await handle_list_all_clients({})
             text = result[0].text

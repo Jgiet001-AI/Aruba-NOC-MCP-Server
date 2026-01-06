@@ -15,8 +15,10 @@ class TestHandleListAllClients:
     @pytest.mark.asyncio
     async def test_list_all_clients_success(self, mock_clients_response):
         """Test successful client listing."""
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = mock_clients_response
+            mock_site.return_value = {"site-id": "test-site"}
 
             result = await handle_list_all_clients({})
 
@@ -28,8 +30,10 @@ class TestHandleListAllClients:
     @pytest.mark.asyncio
     async def test_list_all_clients_with_site_filter(self, mock_clients_response):
         """Test client listing with site filter."""
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = mock_clients_response
+            mock_site.return_value = {"site-id": "site-001"}
 
             await handle_list_all_clients({"site_id": "site-001"})
 
@@ -40,8 +44,10 @@ class TestHandleListAllClients:
     @pytest.mark.asyncio
     async def test_list_all_clients_categorization(self, mock_clients_response):
         """Test that clients are categorized correctly."""
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = mock_clients_response
+            mock_site.return_value = {"site-id": "test-site"}
 
             result = await handle_list_all_clients({})
 
@@ -52,8 +58,10 @@ class TestHandleListAllClients:
     @pytest.mark.asyncio
     async def test_list_all_clients_experience_breakdown(self, mock_clients_response):
         """Test experience score breakdown."""
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = mock_clients_response
+            mock_site.return_value = {"site-id": "test-site"}
 
             result = await handle_list_all_clients({})
 
@@ -63,8 +71,10 @@ class TestHandleListAllClients:
     @pytest.mark.asyncio
     async def test_list_all_clients_empty_response(self):
         """Test handling empty response."""
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = {"items": [], "total": 0}
+            mock_site.return_value = {"site-id": "test-site"}
 
             result = await handle_list_all_clients({})
 
@@ -74,12 +84,14 @@ class TestHandleListAllClients:
     @pytest.mark.asyncio
     async def test_list_all_clients_pagination(self):
         """Test pagination cursor handling."""
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = {
                 "items": [{"type": "Wireless", "status": "Connected", "experience": "Good"}],
                 "total": 100,
                 "next": "cursor_token_123",
             }
+            mock_site.return_value = {"site-id": "test-site"}
 
             result = await handle_list_all_clients({})
 
@@ -88,8 +100,11 @@ class TestHandleListAllClients:
     @pytest.mark.asyncio
     async def test_list_all_clients_default_limit(self):
         """Test that default limit is applied."""
-        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api:
+        with patch("src.tools.clients.call_aruba_api", new_callable=AsyncMock) as mock_api, \
+             patch("src.tools.clients.ensure_site_id", new_callable=AsyncMock) as mock_site:
             mock_api.return_value = {"items": [], "total": 0}
+            # Mock should preserve params and add site-id
+            mock_site.side_effect = lambda p: {**p, "site-id": "test-site"}
 
             await handle_list_all_clients({})
 
