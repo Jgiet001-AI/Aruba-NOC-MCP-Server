@@ -40,6 +40,7 @@ from src.tools.ping_from_ap import handle_ping_from_ap
 from src.tools.ping_from_gateway import handle_ping_from_gateway
 from src.tools.sites import handle_get_sites_health
 from src.tools.traceroute_from_ap import handle_traceroute_from_ap
+from src.tools.base import StatusLabels
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -1205,7 +1206,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
     if handler is None:
         logger.error(f"Unknown tool requested: {name}")
-        from src.tools.base import StatusLabels
 
         return [
             TextContent(
@@ -1222,7 +1222,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         result = await handler(arguments)
     except Exception as e:
         logger.exception(f"Tool {name} failed with error")
-        from src.tools.base import StatusLabels
 
         return [
             TextContent(

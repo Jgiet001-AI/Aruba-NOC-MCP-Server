@@ -34,7 +34,7 @@ jobs:
         run: ruff format --check src/ tests/
 
       - name: Run mypy type check
-        run: mypy src/ --ignore-missing-imports --no-error-summary || true
+        run: mypy src/ --ignore-missing-imports --no-error-summary
 
   test:
     name: Test
@@ -109,7 +109,7 @@ jobs:
           pip install pip-audit bandit
 
       - name: Run pip-audit
-        run: pip-audit -r requirements.txt || true
+        run: pip-audit -r requirements.txt
 
       - name: Run Bandit security scan
-        run: bandit -r src/ -ll || true
+        run: bandit -r src/ -ll

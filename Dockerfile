@@ -20,6 +20,10 @@ COPY src/ ./src/
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-# Run the MCP server
-# Note: Container stays alive; MCP client invokes server via: docker exec -i <container> python -m src.server
-CMD ["tail", "-f", "/dev/null"]
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "from src.server import app; print('OK')" || exit 1
+
+# Use proper entrypoint - can be overridden by docker exec
+ENTRYPOINT ["python", "-m", "src.server"]
+CMD []
