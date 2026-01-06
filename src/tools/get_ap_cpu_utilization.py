@@ -45,6 +45,7 @@ async def handle_get_ap_cpu_utilization(args: dict[str, Any]) -> list[TextConten
     trends = data.get("trends", [])
     ap_name = data.get("apName", serial)
     interval = params["interval"]
+    cpu_values = []  # ✅ Initialize here to prevent UnboundLocalError
 
     if trends:
         cpu_values = [t.get("cpuUtilization", 0) for t in trends]

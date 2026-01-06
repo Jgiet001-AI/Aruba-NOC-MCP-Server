@@ -10,6 +10,7 @@ from mcp.types import TextContent
 from src.api_client import call_aruba_api
 from src.tools.base import VerificationGuards
 from src.tools.verify_facts import store_facts
+from datetime import datetime, timedelta
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -25,9 +26,14 @@ async def handle_list_idps_threats(args: dict[str, Any]) -> list[TextContent]:
     if "gateway_serial" in args:
         params["gatewaySerial"] = args["gateway_serial"]
     if "start_time" in args:
-        params["startTime"] = args["start_time"]
+        params["start-time"] = args["start_time"]
+    else:
+        # ✅ FIX: start-time is REQUIRED - default to 7 days ago
+        start_time_ms = int((datetime.now() - timedelta(days=7)).timestamp() * 1000)
+        params["start-time"] = start_time_ms
+    
     if "end_time" in args:
-        params["endTime"] = args["end_time"]
+        params["end-time"] = args["end_time"]
     if "limit" in args:
         params["limit"] = args["limit"]
 

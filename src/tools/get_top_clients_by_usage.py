@@ -10,6 +10,7 @@ from mcp.types import TextContent
 from src.api_client import call_aruba_api
 from src.tools.base import VerificationGuards, format_bytes
 from src.tools.verify_facts import store_facts
+from src.tools.site_helper import ensure_site_id
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -26,6 +27,9 @@ async def handle_get_top_clients_by_usage(args: dict[str, Any]) -> list[TextCont
     params["time-range"] = args.get("time_range", "24hours")
     if "connection_type" in args and args["connection_type"] != "ALL":
         params["connection-type"] = args["connection_type"]
+
+    # ✅ FIX: Auto-fetch site-id if not provided (REQUIRED by API)
+    params = await ensure_site_id(params)
 
     # Step 2: Call Aruba API
     data = await call_aruba_api("/network-monitoring/v1alpha1/clients/usage/topn", params=params)

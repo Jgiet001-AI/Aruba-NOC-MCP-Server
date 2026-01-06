@@ -11,6 +11,7 @@ from mcp.types import TextContent
 from src.api_client import call_aruba_api
 from src.tools.base import VerificationGuards
 from src.tools.verify_facts import store_facts
+from src.tools.site_helper import get_site_id_for_device
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -26,9 +27,13 @@ async def handle_get_switch_interfaces(args: dict[str, Any]) -> list[TextContent
             TextContent(type="text", text="[ERR] Parameter 'serial' is required. Provide the switch serial number.")
         ]
 
-    # Step 2: Call Aruba API
+    # Step 2: Get site-id for this device (REQUIRED by API)
     try:
-        data = await call_aruba_api(f"/network-monitoring/v1alpha1/switch/{serial}/interfaces")
+        site_id = await get_site_id_for_device(serial)
+        params = {"site-id": site_id}
+        
+        # Call Aruba API with site-id parameter
+        data = await call_aruba_api(f"/network-monitoring/v1alpha1/switch/{serial}/interfaces", params=params)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             return [

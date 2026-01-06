@@ -10,6 +10,7 @@ from mcp.types import TextContent
 from src.api_client import call_aruba_api
 from src.tools.base import VerificationGuards
 from src.tools.verify_facts import store_facts
+from src.tools.site_helper import ensure_site_id
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -30,11 +31,15 @@ async def handle_get_client_trends(args: dict[str, Any]) -> list[TextContent]:
     if "interval" in args:
         params["interval"] = args["interval"]
 
+    # ✅ FIX: Auto-fetch site-id if not provided (REQUIRED by API)
+    params = await ensure_site_id(params)
+
     # Step 2: Call Aruba API
     data = await call_aruba_api("/network-monitoring/v1alpha1/clients/trends", params=params)
 
     # Step 3: Extract trend data
     trends = data.get("trends", [])
+    total_counts = []  # Initialize here to avoid UnboundLocalError
 
     # Calculate statistics from trends
     if trends:

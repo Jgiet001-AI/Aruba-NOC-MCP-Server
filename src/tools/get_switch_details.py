@@ -12,6 +12,7 @@ from src.api_client import call_aruba_api
 from src.tools.base import VerificationGuards, validate_input
 from src.tools.models import GetSwitchDetailsInput
 from src.tools.verify_facts import store_facts
+from src.tools.site_helper import get_site_id_for_device
 
 logger = logging.getLogger("aruba-noc-server")
 
@@ -25,9 +26,13 @@ async def handle_get_switch_details(args: dict[str, Any]) -> list[TextContent]:
         return validated  # Validation error response
     serial = validated.serial
 
-    # Step 2: Call Aruba API (path parameter, not query param)
+    # Step 2: Get site-id for this device (REQUIRED by API)
     try:
-        data = await call_aruba_api(f"/network-monitoring/v1alpha1/switch/{serial}")
+        site_id = await get_site_id_for_device(serial)
+        params = {"site-id": site_id}
+        
+        # Call Aruba API with site-id parameter
+        data = await call_aruba_api(f"/network-monitoring/v1alpha1/switch/{serial}", params=params)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             return [

@@ -23,9 +23,7 @@ from src.tools.get_ap_radios import handle_get_ap_radios
 from src.tools.get_async_test_result import handle_get_async_test_result
 from src.tools.get_client_trends import handle_get_client_trends
 from src.tools.get_device_inventory import handle_get_device_inventory
-from src.tools.get_firewall_sessions import handle_get_firewall_sessions
 from src.tools.get_gateway_cluster_info import handle_get_gateway_cluster_info
-from src.tools.get_gateway_cpu_utilization import handle_get_gateway_cpu_utilization
 from src.tools.get_gateway_details import handle_get_gateway_details
 from src.tools.get_gateway_uplinks import handle_get_gateway_uplinks
 from src.tools.get_site_details import handle_get_site_details
@@ -678,46 +676,6 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="get_gateway_cpu_utilization",
-            description=(
-                "Retrieves CPU utilization trends for a specific gateway over time. Returns time-series "
-                "data showing CPU usage percentages at different intervals, average CPU load, peak "
-                "utilization, and performance trend indicators. Essential for identifying gateway performance "
-                "bottlenecks, VPN capacity planning, branch office connectivity monitoring, and predicting "
-                "hardware upgrade needs.\n\n"
-                "USE THIS WHEN the user asks about gateway performance, CPU usage for specific gateway, "
-                "or VPN performance. For example: 'How is gateway GW-Main-01 performing?', 'CPU usage for "
-                "gateway SN12345678', 'Is the gateway overloaded?', 'VPN capacity check', 'Gateway "
-                "performance trends'.\n\n"
-                "DO NOT USE for AP CPU - use get_ap_cpu_utilization instead. "
-                "DO NOT USE for multiple gateways - this requires a specific serial number. "
-                "This tool is for deep-dive performance analysis of ONE gateway."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "serial": {"type": "string", "description": "Serial number of the gateway (required)"},
-                    "start_time": {
-                        "type": "string",
-                        "description": "Start time in RFC 3339 format (default: 24 hours ago)",
-                        "format": "date-time",
-                    },
-                    "end_time": {
-                        "type": "string",
-                        "description": "End time in RFC 3339 format (default: now)",
-                        "format": "date-time",
-                    },
-                    "interval": {
-                        "type": "string",
-                        "description": "Data interval: '5min', '1hour' (default: '1hour')",
-                        "enum": ["5min", "1hour"],
-                        "default": "1hour",
-                    },
-                },
-                "required": ["serial"],
-            },
-        ),
-        Tool(
             name="list_wlans",
             description=(
                 "Retrieves list of all wireless networks (WLANs/SSIDs) configured across the environment. "
@@ -1045,42 +1003,6 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="get_firewall_sessions",
-            description=(
-                "Retrieves active and recent firewall sessions including blocked connections and allowed "
-                "traffic. Returns detailed session information including source IP/port, destination "
-                "IP/port, protocol (TCP/UDP/ICMP), application/service, firewall rule that matched, "
-                "session status (ACTIVE/CLOSED/BLOCKED), byte/packet counts, session duration, and "
-                "gateway that processed the traffic. Essential for firewall troubleshooting, analyzing "
-                "blocked traffic, verifying firewall rules, and investigating connectivity issues.\n\n"
-                "USE THIS WHEN the user asks about firewall activity, blocked traffic, connection logs, "
-                "or wants to see what's being allowed/denied. For example: 'Show blocked traffic', "
-                "'Firewall sessions', 'What connections are blocked?', 'Show firewall logs', 'Traffic "
-                "analysis', 'Why can't I reach this server?'.\n\n"
-                "DO NOT USE for security threats - use list_idps_threats instead. "
-                "This tool focuses on firewall session logs and rule matching, not threat detection."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "site_id": {"type": "string", "description": "Filter sessions by site ID"},
-                    "status": {
-                        "type": "string",
-                        "description": "Filter by session status",
-                        "enum": ["ACTIVE", "CLOSED", "BLOCKED"],
-                    },
-                    "protocol": {"type": "string", "description": "Filter by protocol", "enum": ["TCP", "UDP", "ICMP"]},
-                    "limit": {
-                        "type": "integer",
-                        "description": "Maximum number of sessions to return",
-                        "minimum": 1,
-                        "maximum": 100,
-                        "default": 100,
-                    },
-                },
-            },
-        ),
-        Tool(
             name="get_stack_members",
             description=(
                 "Retrieves detailed information about all members in a switch stack. Returns comprehensive "
@@ -1167,7 +1089,6 @@ TOOL_HANDLERS = {
     "get_stack_members": handle_get_stack_members,
     # Gateway tools
     "get_gateway_details": handle_get_gateway_details,
-    "get_gateway_cpu_utilization": handle_get_gateway_cpu_utilization,
     "get_gateway_cluster_info": handle_get_gateway_cluster_info,
     "get_gateway_uplinks": handle_get_gateway_uplinks,
     "list_gateway_tunnels": handle_list_gateway_tunnels,
@@ -1185,7 +1106,6 @@ TOOL_HANDLERS = {
     "get_async_test_result": handle_get_async_test_result,
     # Security tools
     "list_idps_threats": handle_list_idps_threats,
-    "get_firewall_sessions": handle_get_firewall_sessions,
 }
 
 
