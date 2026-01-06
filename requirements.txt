@@ -3,7 +3,7 @@
 # Python: 3.11
 
 # Core MCP Framework
-mcp==1.23.0
+mcp==1.25.0
 mcp[cli]==1.23.0
 
 # HTTP Client
