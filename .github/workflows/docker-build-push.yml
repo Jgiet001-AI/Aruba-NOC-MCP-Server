@@ -15,7 +15,7 @@ on:
 
 env:
   # Update IMAGE_NAME with your Docker Hub username
-  IMAGE_NAME: jgiet001ai/aruba-noc-mcp-server
+  IMAGE_NAME: jgiet001/aruba-noc-mcp-server
   REGISTRY: docker.io
 
 jobs:
