@@ -70,6 +70,10 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
 
+[tool.ruff.lint.per-file-ignores]
+# server.py: Intentional import ordering - load_dotenv() must run before other imports
+"src/server.py" = ["E402", "I001"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true

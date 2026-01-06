@@ -6,10 +6,13 @@ from mcp.server import Server
 
 # Load environment variables from .env file
 load_dotenv()
+# fmt: off  - Disable formatting for intentional import order
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 # Import handler functions from tool modules
+# Note: These imports come after load_dotenv() to ensure environment variables
+# are available when modules are imported (some modules read env vars at import time)
 from src.tools.clients import handle_list_all_clients
 from src.tools.devices import handle_get_device_list
 from src.tools.firmware import handle_get_firmware_details
@@ -41,6 +44,7 @@ from src.tools.ping_from_gateway import handle_ping_from_gateway
 from src.tools.sites import handle_get_sites_health
 from src.tools.traceroute_from_ap import handle_traceroute_from_ap
 from src.tools.base import StatusLabels
+# fmt: on  - Re-enable formatting
 
 logger = logging.getLogger("aruba-noc-server")
 

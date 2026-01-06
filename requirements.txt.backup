@@ -1,0 +1,37 @@
+# Aruba NOC MCP Server - Frozen Dependencies
+# Generated: 2025-12-26
+# Python: 3.11
+
+# Core MCP Framework
+mcp==1.9.0
+mcp[cli]==1.9.0
+
+# HTTP Client
+httpx==0.28.1
+
+# Configuration
+python-dotenv==1.0.1
+
+# Data Validation
+pydantic==2.10.4
+
+# Retry Logic
+tenacity==9.0.0
+
+# Observability - LangSmith for tool usage tracking (optional)
+langsmith>=0.1.0
+
+# ASGI Server (optional, for HTTP transport)
+uvicorn==0.34.0
+
+# Transitive dependencies (pinned for reproducibility)
+anyio==4.8.0
+certifi==2024.12.14
+h11==0.14.0
+httpcore==1.0.7
+idna==3.10
+sniffio==1.3.1
+typing-extensions==4.12.2
+annotated-types==0.7.0
+click==8.1.8
+starlette==0.45.2
