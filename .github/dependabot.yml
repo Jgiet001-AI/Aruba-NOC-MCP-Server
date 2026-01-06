@@ -7,7 +7,7 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3  # Reduced from 10 (using groups instead)
     labels:
       - "dependencies"
       - "python"
@@ -18,6 +18,14 @@ updates:
       - "Jgiet001-AI"
     assignees:
       - "Jgiet001-AI"
+    # Group minor/patch updates together to reduce PR noise
+    groups:
+      python-minor-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -26,7 +34,7 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2  # Reduced from 5 (using groups instead)
     labels:
       - "dependencies"
       - "github-actions"
@@ -37,6 +45,11 @@ updates:
       - "Jgiet001-AI"
     assignees:
       - "Jgiet001-AI"
+    # Group all GitHub Actions updates into a single PR
+    groups:
+      github-actions-updates:
+        patterns:
+          - "*"
 
   # Docker
   - package-ecosystem: "docker"
@@ -45,7 +58,7 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "docker"
@@ -56,3 +69,8 @@ updates:
       - "Jgiet001-AI"
     assignees:
       - "Jgiet001-AI"
+    # Ignore major Python version upgrades (e.g., 3.11 -> 3.14)
+    # Only allow minor/patch updates for stability
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major"]
