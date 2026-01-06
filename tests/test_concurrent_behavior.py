@@ -10,13 +10,12 @@ These tests use asyncio.gather to simulate concurrent API calls.
 """
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
-from src.api_client import call_aruba_api
 from src.config import ArubaConfig
 from src.resilience import CircuitBreaker, CircuitState, RateLimiter
 
@@ -40,7 +39,6 @@ class TestConcurrentCircuitBreaker:
             await breaker.record_failure()
 
         assert breaker.state == CircuitState.OPEN
-        initial_state_change_time = breaker.last_failure_time
 
         # Wait for timeout to elapse
         await asyncio.sleep(1.1)
@@ -188,9 +186,9 @@ class TestConcurrentRateLimiter:
             acquired_count += 1
 
         # Try to acquire 20 tokens concurrently (10 should wait)
-        start = datetime.now()
+        start = datetime.now(UTC)
         await asyncio.gather(*[try_acquire() for _ in range(20)])
-        elapsed = (datetime.now() - start).total_seconds()
+        elapsed = (datetime.now(UTC) - start).total_seconds()
 
         # Should have acquired all 20
         assert acquired_count == 20
@@ -250,9 +248,9 @@ class TestEndToEndConcurrency:
 
         # Make 50 concurrent requests
         # Only 20 should complete in first second (rate limit)
-        start = datetime.now()
+        start = datetime.now(UTC)
         results = await asyncio.gather(*[make_test_request() for _ in range(50)])
-        elapsed = (datetime.now() - start).total_seconds()
+        elapsed = (datetime.now(UTC) - start).total_seconds()
 
         # All should succeed (circuit breaker stays CLOSED)
         assert all(r == "success" for r in results)

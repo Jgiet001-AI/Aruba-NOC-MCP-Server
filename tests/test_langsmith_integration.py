@@ -5,7 +5,7 @@ Verifies that LangSmith tracing is properly integrated into the MCP server.
 """
 
 import os
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
